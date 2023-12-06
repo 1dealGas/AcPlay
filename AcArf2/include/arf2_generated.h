@@ -427,4 +427,34 @@ inline ::flatbuffers::Offset<Arf2> CreateArf2Direct(
       index__);
 }
 
+inline const Arf2 *GetArf2(const void *buf) {
+  return ::flatbuffers::GetRoot<Arf2>(buf);
+}
+
+inline const Arf2 *GetSizePrefixedArf2(const void *buf) {
+  return ::flatbuffers::GetSizePrefixedRoot<Arf2>(buf);
+}
+
+inline bool VerifyArf2Buffer(
+    ::flatbuffers::Verifier &verifier) {
+  return verifier.VerifyBuffer<Arf2>(nullptr);
+}
+
+inline bool VerifySizePrefixedArf2Buffer(
+    ::flatbuffers::Verifier &verifier) {
+  return verifier.VerifySizePrefixedBuffer<Arf2>(nullptr);
+}
+
+inline void FinishArf2Buffer(
+    ::flatbuffers::FlatBufferBuilder &fbb,
+    ::flatbuffers::Offset<Arf2> root) {
+  fbb.Finish(root);
+}
+
+inline void FinishSizePrefixedArf2Buffer(
+    ::flatbuffers::FlatBufferBuilder &fbb,
+    ::flatbuffers::Offset<Arf2> root) {
+  fbb.FinishSizePrefixed(root);
+}
+
 #endif  // FLATBUFFERS_GENERATED_ARF2_H_
