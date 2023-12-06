@@ -1,0 +1,7 @@
+Source Codes of Aerials Chart[fumen] Player.
+
+Recommended Reading Order:
+1. GitHub.com/1dealGas/Arf2-utils
+2. AcArf2/api/arf2.script_api
+3. AcArf2/src/arf2.cpp
+4. AcPlay.lua & AcInput.lua
