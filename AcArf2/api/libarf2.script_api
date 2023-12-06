@@ -1,0 +1,99 @@
+- name: Arf2
+  type: table
+  members:
+
+
+  - name: InitArf
+    type: function
+    parameters:
+    - name: str
+      type: string
+    returns:
+    - name: end_ms
+      type: number
+    - name: total_hints
+      type: number
+    - name: wgo_required
+      type: number
+    - name: hgo_required
+      type: number
+
+
+  - name: UpdateArf
+    type: function
+    parameters:
+    - name: mstime
+      type: number
+    - name: table_w
+      type: table
+    - name: table_wi
+      type: table
+    - name: table_h
+      type: table
+    - name: table_hi
+      type: table
+    - name: table_ht
+      type: table
+    - name: table_a
+      type: table
+    - name: table_ai
+      type: table
+    - name: table_at
+      type: table
+    returns:
+    - name: hint_lost
+      type: number
+    - name: wgo_used
+      type: number
+    - name: hgo_used
+      type: number
+    - name: ago_used
+      type: number
+
+
+  - name: JudgeArf
+    type: function
+    parameters:
+    - name: mstime
+      type: number
+    - name: table_touch
+      type: table
+    returns:
+    - name: hint_hit
+      type: number
+    - name: hint_lost
+      type: number
+
+
+  - name: FinalArf
+    type: function
+
+  - name: SetXScale
+    type: function
+    parameters:
+    - name: xscale
+      type: number
+
+  - name: SetYScale
+    type: function
+    parameters:
+    - name: yscale
+      type: number
+
+  - name: SetXDelta
+    type: function
+    parameters:
+    - name: xdelta
+      type: number
+
+  - name: SetYDelta
+    type: function
+    parameters:
+    - name: ydelta
+      type: number
+
+  - name: SetRotDeg
+    type: function
+    parameters:
+    - name: rotdeg
+      type: number
