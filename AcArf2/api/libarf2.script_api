@@ -56,6 +56,8 @@
     parameters:
     - name: mstime
       type: number
+    - name: idelta
+      type: number
     - name: table_touch
       type: table
     returns:

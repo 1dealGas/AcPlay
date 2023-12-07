@@ -53,13 +53,24 @@ static inline int InitArf(lua_State *L)   // InitArf(str) -> before, total_hints
 typedef dmVMath::Vector3* v3p;
 static inline int UpdateArf(lua_State *L)   // UpdateArf(mstime, table_w/wi/h/hi/ht/a/ai/at) -> hint_lost, wgo/hgo/ago_used
 {S
-    return 0;
+    // Process msTime
+    uint32_t mstime = luaL_checknumber(L, 1);
+    uint32_t idx_group = mstime >> 9;
+
+    // Check DTime
+
+    // Search & Interpolate Wishes
+
+    // Sweep Hints
+
+    // Render Hints & Effects
+    return 4;
 }
 
 
-static inline int JudgeArf(lua_State *L)   // JudgeArf(mstime, table_touch) -> hint_hit, hint_lost, special_hint_judged
+static inline int JudgeArf(lua_State *L)   // JudgeArf(mstime, idelta, table_touch) -> hint_hit, hint_lost, special_hint_judged
 {S
-    return 0;
+    return 3;
 }
 
 
@@ -73,11 +84,11 @@ static inline int FinalArf(lua_State *L)
 }
 
 
-static inline int SetXScale(lua_State *L) { xscale = luaL_checknumber(L,1); return 0; }
-static inline int SetYScale(lua_State *L) { yscale = luaL_checknumber(L,1); return 0; }
-static inline int SetXDelta(lua_State *L) { xdelta = luaL_checknumber(L,1); return 0; }
-static inline int SetYDelta(lua_State *L) { ydelta = luaL_checknumber(L,1); return 0; }
-static inline int SetRotDeg(lua_State *L) { rotdeg = luaL_checknumber(L,1); return 0; }
+static inline int SetXScale(lua_State *L) { xscale = luaL_checknumber(L, 1); return 0; }
+static inline int SetYScale(lua_State *L) { yscale = luaL_checknumber(L, 1); return 0; }
+static inline int SetXDelta(lua_State *L) { xdelta = luaL_checknumber(L, 1); return 0; }
+static inline int SetYDelta(lua_State *L) { ydelta = luaL_checknumber(L, 1); return 0; }
+static inline int SetRotDeg(lua_State *L) { rotdeg = luaL_checknumber(L, 1); return 0; }
 
 
 // Defold Lifecycle Related Stuff
