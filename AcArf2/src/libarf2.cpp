@@ -13,7 +13,8 @@ Arf2* Arf;
 static double xscale, yscale, xdelta, ydelta, rotdeg;
 
 // Internal Globals
-uint32_t special_hint, dt_progress, dt_layer1, dt_layer2;
+uint16_t special_hint, dt_progress;
+uint32_t dt_layer1, dt_layer2;
 std::map<uint32_t, uint8_t> last_vec;
 std::vector<uint32_t> blnums;
 
