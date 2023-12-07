@@ -34,13 +34,10 @@ static inline int InitArf(lua_State *L)   // InitArf(str) -> before, total_hints
     xscale = 1.0;  yscale = 1.0;  xdelta = 0.0;  ydelta = 0.0;  rotdeg = 0.0;
     special_hint = 0;  dt_p1 = 0;  dt_p2 = 0;
 
-
     const char* B = luaL_checklstring(L, 1, &ArfSize);
-    if(!ArfSize) return 0;
-
-    strcpy( ArfBuf = new char[ArfSize], B );
+    S ArfBuf = new char[ArfSize];
+    for(uint64_t i=0; i<ArfSize; i++) ArfBuf[i] = B[i];
     lua_gc(L, LUA_GCCOLLECT, 0);
-
 
     DM_LUA_STACK_CHECK(L, 4);
     Arf = GetMutableArf2( ArfBuf );
