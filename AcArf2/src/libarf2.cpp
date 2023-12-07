@@ -29,7 +29,7 @@ extern double RCP[8192];
 
 
 // Script APIs, Under Construction
-static inline int InitArf(lua_State *L)   // InitArf(str) -> end_ms, total_hint, wgo_required, hgo_required
+static inline int InitArf(lua_State *L)   // InitArf(str) -> before, total_hint, wgo_required, hgo_required
 {
     xscale = 1.0;  yscale = 1.0;  xdelta = 0.0;  ydelta = 0.0;  rotdeg = 0.0;
     special_hint = 0;  dt_progress = 0;  dt_layer1 = 0;  dt_layer2 = 0;
