@@ -63,6 +63,8 @@
       type: number
     - name: hint_lost
       type: number
+    - name: special_hint_judged
+      type: boolean
 
 
   - name: FinalArf
