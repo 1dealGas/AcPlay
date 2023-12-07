@@ -14,8 +14,8 @@ static double xscale, yscale, xdelta, ydelta, rotdeg;
 
 // Internal Globals
 uint32_t special_hint, dt_progress, dt_layer1, dt_layer2;
-std::map<uint64_t, uint64_t> last_vec;
-std::vector<uint64_t> blnums;
+std::map<uint32_t, uint8_t> last_vec;
+std::vector<uint32_t> blnums;
 
 // Pointers
 // Caches
