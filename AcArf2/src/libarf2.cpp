@@ -1,6 +1,5 @@
 #define LIB_NAME "libArf2"
 #define MODULE_NAME "Arf2"
-#define S {if(!ArfSize) return 0;}
 
 #include <dmsdk/sdk.h>
 #include <dmsdk/dlib/vmath.h>
@@ -16,26 +15,24 @@ char* ArfBuf = nullptr;
 static double xscale, yscale, xdelta, ydelta, rotdeg;
 
 // Internal Globals
-uint16_t special_hint, dt_progress;
+uint16_t special_hint, dt_p1, dt_p2;
 std::map<uint32_t, uint8_t> last_vec;
 std::vector<uint32_t> blnums;
 
 // Caches
-extern float SIN[901];
-extern float COS[901];
-extern float ESIN[1001];
-extern float ECOS[1001];
-extern float SQRT[1001];
+extern float SIN[901]; extern float COS[901];
+extern float ESIN[1001]; extern float ECOS[1001]; extern float SQRT[1001];
 extern double RCP[8192];
 
 
-
-// Script APIs, Under Construction
+/* Script APIs, Under Construction
+   S --> Safety guaranteed, by precluding the memory leakage.  */
 Arf2* Arf = nullptr;
+#define S {if(!ArfSize) return 0;}
 static inline int InitArf(lua_State *L)   // InitArf(str) -> before, total_hints, wgo_required, hgo_required
 {
     xscale = 1.0;  yscale = 1.0;  xdelta = 0.0;  ydelta = 0.0;  rotdeg = 0.0;
-    special_hint = 0;  dt_progress = 0;
+    special_hint = 0;  dt_p1 = 0;  dt_p2 = 0;
 
 
     const char* B = luaL_checklstring(L, 1, &ArfSize);
@@ -71,15 +68,12 @@ static inline int JudgeArf(lua_State *L)   // JudgeArf(mstime, table_touch) -> h
 
 static inline int FinalArf(lua_State *L)
 {S
-    delete [] ArfBuf;
-
-    ArfBuf = nullptr;
     Arf = nullptr;
+    delete [] ArfBuf;
+    ArfBuf = nullptr;
     ArfSize = 0;
-    
     return 0;
 }
-
 
 
 static inline int SetXScale(lua_State *L) { xscale = luaL_checknumber(L,1); return 0; }
@@ -87,6 +81,7 @@ static inline int SetYScale(lua_State *L) { yscale = luaL_checknumber(L,1); retu
 static inline int SetXDelta(lua_State *L) { xdelta = luaL_checknumber(L,1); return 0; }
 static inline int SetYDelta(lua_State *L) { ydelta = luaL_checknumber(L,1); return 0; }
 static inline int SetRotDeg(lua_State *L) { rotdeg = luaL_checknumber(L,1); return 0; }
+
 
 // Defold Lifecycle Related Stuff
 static const luaL_reg M[] =
