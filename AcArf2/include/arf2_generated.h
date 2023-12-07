@@ -8,7 +8,6 @@
 #define FLATBUFFERS_GENERATED_ARF2_H_
 #include "flatbuffers/flatbuffers.h"
 
-
 // Ensure the included flatbuffers.h is the same version as when this file was
 // generated, otherwise it may not be compatible.
 static_assert(FLATBUFFERS_VERSION_MAJOR == 23 &&
@@ -38,11 +37,20 @@ struct WishChild FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   uint8_t p() const {
     return GetField<uint8_t>(VT_P, 0);
   }
+  bool mutate_p(uint8_t _p = 0) {
+    return SetField<uint8_t>(VT_P, _p, 0);
+  }
   uint32_t dt() const {
     return GetField<uint32_t>(VT_DT, 0);
   }
+  bool mutate_dt(uint32_t _dt = 0) {
+    return SetField<uint32_t>(VT_DT, _dt, 0);
+  }
   const ::flatbuffers::Vector<uint32_t> *anodes() const {
     return GetPointer<const ::flatbuffers::Vector<uint32_t> *>(VT_ANODES);
+  }
+  ::flatbuffers::Vector<uint32_t> *mutable_anodes() {
+    return GetPointer<::flatbuffers::Vector<uint32_t> *>(VT_ANODES);
   }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -90,19 +98,6 @@ inline ::flatbuffers::Offset<WishChild> CreateWishChild(
   return builder_.Finish();
 }
 
-inline ::flatbuffers::Offset<WishChild> CreateWishChildDirect(
-    ::flatbuffers::FlatBufferBuilder &_fbb,
-    uint8_t p = 0,
-    uint32_t dt = 0,
-    const std::vector<uint32_t> *anodes = nullptr) {
-  auto anodes__ = anodes ? _fbb.CreateVector<uint32_t>(*anodes) : 0;
-  return CreateWishChild(
-      _fbb,
-      p,
-      dt,
-      anodes__);
-}
-
 struct WishGroup FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef WishGroupBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -113,11 +108,20 @@ struct WishGroup FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   uint32_t info() const {
     return GetField<uint32_t>(VT_INFO, 0);
   }
+  bool mutate_info(uint32_t _info = 0) {
+    return SetField<uint32_t>(VT_INFO, _info, 0);
+  }
   const ::flatbuffers::Vector<uint64_t> *nodes() const {
     return GetPointer<const ::flatbuffers::Vector<uint64_t> *>(VT_NODES);
   }
+  ::flatbuffers::Vector<uint64_t> *mutable_nodes() {
+    return GetPointer<::flatbuffers::Vector<uint64_t> *>(VT_NODES);
+  }
   const ::flatbuffers::Vector<::flatbuffers::Offset<WishChild>> *childs() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<WishChild>> *>(VT_CHILDS);
+  }
+  ::flatbuffers::Vector<::flatbuffers::Offset<WishChild>> *mutable_childs() {
+    return GetPointer<::flatbuffers::Vector<::flatbuffers::Offset<WishChild>> *>(VT_CHILDS);
   }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -167,31 +171,23 @@ inline ::flatbuffers::Offset<WishGroup> CreateWishGroup(
   return builder_.Finish();
 }
 
-inline ::flatbuffers::Offset<WishGroup> CreateWishGroupDirect(
-    ::flatbuffers::FlatBufferBuilder &_fbb,
-    uint32_t info = 0,
-    const std::vector<uint64_t> *nodes = nullptr,
-    const std::vector<::flatbuffers::Offset<WishChild>> *childs = nullptr) {
-  auto nodes__ = nodes ? _fbb.CreateVector<uint64_t>(*nodes) : 0;
-  auto childs__ = childs ? _fbb.CreateVector<::flatbuffers::Offset<WishChild>>(*childs) : 0;
-  return CreateWishGroup(
-      _fbb,
-      info,
-      nodes__,
-      childs__);
-}
-
 struct Arf2Index FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef Arf2IndexBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_WIDX = 4,
     VT_HIDX = 6
   };
-  const ::flatbuffers::Vector<uint32_t> *widx() const {
-    return GetPointer<const ::flatbuffers::Vector<uint32_t> *>(VT_WIDX);
+  const ::flatbuffers::Vector<uint16_t> *widx() const {
+    return GetPointer<const ::flatbuffers::Vector<uint16_t> *>(VT_WIDX);
   }
-  const ::flatbuffers::Vector<uint32_t> *hidx() const {
-    return GetPointer<const ::flatbuffers::Vector<uint32_t> *>(VT_HIDX);
+  ::flatbuffers::Vector<uint16_t> *mutable_widx() {
+    return GetPointer<::flatbuffers::Vector<uint16_t> *>(VT_WIDX);
+  }
+  const ::flatbuffers::Vector<uint16_t> *hidx() const {
+    return GetPointer<const ::flatbuffers::Vector<uint16_t> *>(VT_HIDX);
+  }
+  ::flatbuffers::Vector<uint16_t> *mutable_hidx() {
+    return GetPointer<::flatbuffers::Vector<uint16_t> *>(VT_HIDX);
   }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -207,10 +203,10 @@ struct Arf2IndexBuilder {
   typedef Arf2Index Table;
   ::flatbuffers::FlatBufferBuilder &fbb_;
   ::flatbuffers::uoffset_t start_;
-  void add_widx(::flatbuffers::Offset<::flatbuffers::Vector<uint32_t>> widx) {
+  void add_widx(::flatbuffers::Offset<::flatbuffers::Vector<uint16_t>> widx) {
     fbb_.AddOffset(Arf2Index::VT_WIDX, widx);
   }
-  void add_hidx(::flatbuffers::Offset<::flatbuffers::Vector<uint32_t>> hidx) {
+  void add_hidx(::flatbuffers::Offset<::flatbuffers::Vector<uint16_t>> hidx) {
     fbb_.AddOffset(Arf2Index::VT_HIDX, hidx);
   }
   explicit Arf2IndexBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
@@ -226,87 +222,100 @@ struct Arf2IndexBuilder {
 
 inline ::flatbuffers::Offset<Arf2Index> CreateArf2Index(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    ::flatbuffers::Offset<::flatbuffers::Vector<uint32_t>> widx = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<uint32_t>> hidx = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<uint16_t>> widx = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<uint16_t>> hidx = 0) {
   Arf2IndexBuilder builder_(_fbb);
   builder_.add_hidx(hidx);
   builder_.add_widx(widx);
   return builder_.Finish();
 }
 
-inline ::flatbuffers::Offset<Arf2Index> CreateArf2IndexDirect(
-    ::flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<uint32_t> *widx = nullptr,
-    const std::vector<uint32_t> *hidx = nullptr) {
-  auto widx__ = widx ? _fbb.CreateVector<uint32_t>(*widx) : 0;
-  auto hidx__ = hidx ? _fbb.CreateVector<uint32_t>(*hidx) : 0;
-  return CreateArf2Index(
-      _fbb,
-      widx__,
-      hidx__);
-}
-
 struct Arf2 FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef Arf2Builder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_INIT_MS = 4,
-    VT_END_MS = 6,
-    VT_TOTAL_HINTS = 8,
-    VT_WGO_REQUIRED = 10,
-    VT_HGO_REQUIRED = 12,
-    VT_WISH = 14,
-    VT_HINT = 16,
-    VT_SPECIAL_HINT = 18,
-    VT_DTS_LAYER1 = 20,
-    VT_DTS_LAYER2 = 22,
-    VT_INDEX = 24
+    VT_BEFORE = 4,
+    VT_TOTAL_HINTS = 6,
+    VT_WGO_REQUIRED = 8,
+    VT_HGO_REQUIRED = 10,
+    VT_WISH = 12,
+    VT_HINT = 14,
+    VT_SPECIAL_HINT = 16,
+    VT_DTS_LAYER1 = 18,
+    VT_DTS_LAYER2 = 20,
+    VT_INDEX = 22
   };
-  uint32_t init_ms() const {
-    return GetField<uint32_t>(VT_INIT_MS, 0);
+  uint32_t before() const {
+    return GetField<uint32_t>(VT_BEFORE, 0);
   }
-  uint32_t end_ms() const {
-    return GetField<uint32_t>(VT_END_MS, 0);
+  bool mutate_before(uint32_t _before = 0) {
+    return SetField<uint32_t>(VT_BEFORE, _before, 0);
   }
-  uint32_t total_hints() const {
-    return GetField<uint32_t>(VT_TOTAL_HINTS, 0);
+  uint16_t total_hints() const {
+    return GetField<uint16_t>(VT_TOTAL_HINTS, 0);
   }
-  uint32_t wgo_required() const {
-    return GetField<uint32_t>(VT_WGO_REQUIRED, 0);
+  bool mutate_total_hints(uint16_t _total_hints = 0) {
+    return SetField<uint16_t>(VT_TOTAL_HINTS, _total_hints, 0);
   }
-  uint32_t hgo_required() const {
-    return GetField<uint32_t>(VT_HGO_REQUIRED, 0);
+  uint8_t wgo_required() const {
+    return GetField<uint8_t>(VT_WGO_REQUIRED, 0);
+  }
+  bool mutate_wgo_required(uint8_t _wgo_required = 0) {
+    return SetField<uint8_t>(VT_WGO_REQUIRED, _wgo_required, 0);
+  }
+  uint8_t hgo_required() const {
+    return GetField<uint8_t>(VT_HGO_REQUIRED, 0);
+  }
+  bool mutate_hgo_required(uint8_t _hgo_required = 0) {
+    return SetField<uint8_t>(VT_HGO_REQUIRED, _hgo_required, 0);
   }
   const ::flatbuffers::Vector<::flatbuffers::Offset<WishGroup>> *wish() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<WishGroup>> *>(VT_WISH);
   }
+  ::flatbuffers::Vector<::flatbuffers::Offset<WishGroup>> *mutable_wish() {
+    return GetPointer<::flatbuffers::Vector<::flatbuffers::Offset<WishGroup>> *>(VT_WISH);
+  }
   const ::flatbuffers::Vector<uint64_t> *hint() const {
     return GetPointer<const ::flatbuffers::Vector<uint64_t> *>(VT_HINT);
   }
-  uint32_t special_hint() const {
-    return GetField<uint32_t>(VT_SPECIAL_HINT, 0);
+  ::flatbuffers::Vector<uint64_t> *mutable_hint() {
+    return GetPointer<::flatbuffers::Vector<uint64_t> *>(VT_HINT);
+  }
+  uint16_t special_hint() const {
+    return GetField<uint16_t>(VT_SPECIAL_HINT, 0);
+  }
+  bool mutate_special_hint(uint16_t _special_hint = 0) {
+    return SetField<uint16_t>(VT_SPECIAL_HINT, _special_hint, 0);
   }
   const ::flatbuffers::Vector<uint64_t> *dts_layer1() const {
     return GetPointer<const ::flatbuffers::Vector<uint64_t> *>(VT_DTS_LAYER1);
   }
+  ::flatbuffers::Vector<uint64_t> *mutable_dts_layer1() {
+    return GetPointer<::flatbuffers::Vector<uint64_t> *>(VT_DTS_LAYER1);
+  }
   const ::flatbuffers::Vector<uint64_t> *dts_layer2() const {
     return GetPointer<const ::flatbuffers::Vector<uint64_t> *>(VT_DTS_LAYER2);
+  }
+  ::flatbuffers::Vector<uint64_t> *mutable_dts_layer2() {
+    return GetPointer<::flatbuffers::Vector<uint64_t> *>(VT_DTS_LAYER2);
   }
   const ::flatbuffers::Vector<::flatbuffers::Offset<Arf2Index>> *index() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<Arf2Index>> *>(VT_INDEX);
   }
+  ::flatbuffers::Vector<::flatbuffers::Offset<Arf2Index>> *mutable_index() {
+    return GetPointer<::flatbuffers::Vector<::flatbuffers::Offset<Arf2Index>> *>(VT_INDEX);
+  }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyField<uint32_t>(verifier, VT_INIT_MS, 4) &&
-           VerifyField<uint32_t>(verifier, VT_END_MS, 4) &&
-           VerifyField<uint32_t>(verifier, VT_TOTAL_HINTS, 4) &&
-           VerifyField<uint32_t>(verifier, VT_WGO_REQUIRED, 4) &&
-           VerifyField<uint32_t>(verifier, VT_HGO_REQUIRED, 4) &&
+           VerifyField<uint32_t>(verifier, VT_BEFORE, 4) &&
+           VerifyField<uint16_t>(verifier, VT_TOTAL_HINTS, 2) &&
+           VerifyField<uint8_t>(verifier, VT_WGO_REQUIRED, 1) &&
+           VerifyField<uint8_t>(verifier, VT_HGO_REQUIRED, 1) &&
            VerifyOffset(verifier, VT_WISH) &&
            verifier.VerifyVector(wish()) &&
            verifier.VerifyVectorOfTables(wish()) &&
            VerifyOffset(verifier, VT_HINT) &&
            verifier.VerifyVector(hint()) &&
-           VerifyField<uint32_t>(verifier, VT_SPECIAL_HINT, 4) &&
+           VerifyField<uint16_t>(verifier, VT_SPECIAL_HINT, 2) &&
            VerifyOffset(verifier, VT_DTS_LAYER1) &&
            verifier.VerifyVector(dts_layer1()) &&
            VerifyOffset(verifier, VT_DTS_LAYER2) &&
@@ -322,20 +331,17 @@ struct Arf2Builder {
   typedef Arf2 Table;
   ::flatbuffers::FlatBufferBuilder &fbb_;
   ::flatbuffers::uoffset_t start_;
-  void add_init_ms(uint32_t init_ms) {
-    fbb_.AddElement<uint32_t>(Arf2::VT_INIT_MS, init_ms, 0);
+  void add_before(uint32_t before) {
+    fbb_.AddElement<uint32_t>(Arf2::VT_BEFORE, before, 0);
   }
-  void add_end_ms(uint32_t end_ms) {
-    fbb_.AddElement<uint32_t>(Arf2::VT_END_MS, end_ms, 0);
+  void add_total_hints(uint16_t total_hints) {
+    fbb_.AddElement<uint16_t>(Arf2::VT_TOTAL_HINTS, total_hints, 0);
   }
-  void add_total_hints(uint32_t total_hints) {
-    fbb_.AddElement<uint32_t>(Arf2::VT_TOTAL_HINTS, total_hints, 0);
+  void add_wgo_required(uint8_t wgo_required) {
+    fbb_.AddElement<uint8_t>(Arf2::VT_WGO_REQUIRED, wgo_required, 0);
   }
-  void add_wgo_required(uint32_t wgo_required) {
-    fbb_.AddElement<uint32_t>(Arf2::VT_WGO_REQUIRED, wgo_required, 0);
-  }
-  void add_hgo_required(uint32_t hgo_required) {
-    fbb_.AddElement<uint32_t>(Arf2::VT_HGO_REQUIRED, hgo_required, 0);
+  void add_hgo_required(uint8_t hgo_required) {
+    fbb_.AddElement<uint8_t>(Arf2::VT_HGO_REQUIRED, hgo_required, 0);
   }
   void add_wish(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<WishGroup>>> wish) {
     fbb_.AddOffset(Arf2::VT_WISH, wish);
@@ -343,8 +349,8 @@ struct Arf2Builder {
   void add_hint(::flatbuffers::Offset<::flatbuffers::Vector<uint64_t>> hint) {
     fbb_.AddOffset(Arf2::VT_HINT, hint);
   }
-  void add_special_hint(uint32_t special_hint) {
-    fbb_.AddElement<uint32_t>(Arf2::VT_SPECIAL_HINT, special_hint, 0);
+  void add_special_hint(uint16_t special_hint) {
+    fbb_.AddElement<uint16_t>(Arf2::VT_SPECIAL_HINT, special_hint, 0);
   }
   void add_dts_layer1(::flatbuffers::Offset<::flatbuffers::Vector<uint64_t>> dts_layer1) {
     fbb_.AddOffset(Arf2::VT_DTS_LAYER1, dts_layer1);
@@ -368,14 +374,13 @@ struct Arf2Builder {
 
 inline ::flatbuffers::Offset<Arf2> CreateArf2(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    uint32_t init_ms = 0,
-    uint32_t end_ms = 0,
-    uint32_t total_hints = 0,
-    uint32_t wgo_required = 0,
-    uint32_t hgo_required = 0,
+    uint32_t before = 0,
+    uint16_t total_hints = 0,
+    uint8_t wgo_required = 0,
+    uint8_t hgo_required = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<WishGroup>>> wish = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<uint64_t>> hint = 0,
-    uint32_t special_hint = 0,
+    uint16_t special_hint = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<uint64_t>> dts_layer1 = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<uint64_t>> dts_layer2 = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<Arf2Index>>> index = 0) {
@@ -383,48 +388,14 @@ inline ::flatbuffers::Offset<Arf2> CreateArf2(
   builder_.add_index(index);
   builder_.add_dts_layer2(dts_layer2);
   builder_.add_dts_layer1(dts_layer1);
-  builder_.add_special_hint(special_hint);
   builder_.add_hint(hint);
   builder_.add_wish(wish);
+  builder_.add_before(before);
+  builder_.add_special_hint(special_hint);
+  builder_.add_total_hints(total_hints);
   builder_.add_hgo_required(hgo_required);
   builder_.add_wgo_required(wgo_required);
-  builder_.add_total_hints(total_hints);
-  builder_.add_end_ms(end_ms);
-  builder_.add_init_ms(init_ms);
   return builder_.Finish();
-}
-
-inline ::flatbuffers::Offset<Arf2> CreateArf2Direct(
-    ::flatbuffers::FlatBufferBuilder &_fbb,
-    uint32_t init_ms = 0,
-    uint32_t end_ms = 0,
-    uint32_t total_hints = 0,
-    uint32_t wgo_required = 0,
-    uint32_t hgo_required = 0,
-    const std::vector<::flatbuffers::Offset<WishGroup>> *wish = nullptr,
-    const std::vector<uint64_t> *hint = nullptr,
-    uint32_t special_hint = 0,
-    const std::vector<uint64_t> *dts_layer1 = nullptr,
-    const std::vector<uint64_t> *dts_layer2 = nullptr,
-    const std::vector<::flatbuffers::Offset<Arf2Index>> *index = nullptr) {
-  auto wish__ = wish ? _fbb.CreateVector<::flatbuffers::Offset<WishGroup>>(*wish) : 0;
-  auto hint__ = hint ? _fbb.CreateVector<uint64_t>(*hint) : 0;
-  auto dts_layer1__ = dts_layer1 ? _fbb.CreateVector<uint64_t>(*dts_layer1) : 0;
-  auto dts_layer2__ = dts_layer2 ? _fbb.CreateVector<uint64_t>(*dts_layer2) : 0;
-  auto index__ = index ? _fbb.CreateVector<::flatbuffers::Offset<Arf2Index>>(*index) : 0;
-  return CreateArf2(
-      _fbb,
-      init_ms,
-      end_ms,
-      total_hints,
-      wgo_required,
-      hgo_required,
-      wish__,
-      hint__,
-      special_hint,
-      dts_layer1__,
-      dts_layer2__,
-      index__);
 }
 
 inline const Arf2 *GetArf2(const void *buf) {
@@ -433,6 +404,14 @@ inline const Arf2 *GetArf2(const void *buf) {
 
 inline const Arf2 *GetSizePrefixedArf2(const void *buf) {
   return ::flatbuffers::GetSizePrefixedRoot<Arf2>(buf);
+}
+
+inline Arf2 *GetMutableArf2(void *buf) {
+  return ::flatbuffers::GetMutableRoot<Arf2>(buf);
+}
+
+inline Arf2 *GetMutableSizePrefixedArf2(void *buf) {
+  return ::flatbuffers::GetMutableSizePrefixedRoot<Arf2>(buf);
 }
 
 inline bool VerifyArf2Buffer(

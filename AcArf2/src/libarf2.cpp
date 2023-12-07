@@ -14,11 +14,9 @@ static double xscale, yscale, xdelta, ydelta, rotdeg;
 
 // Internal Globals
 uint16_t special_hint, dt_progress;
-uint32_t dt_layer1, dt_layer2;
 std::map<uint32_t, uint8_t> last_vec;
 std::vector<uint32_t> blnums;
 
-// Pointers
 // Caches
 extern float SIN[901];
 extern float COS[901];
@@ -33,7 +31,7 @@ extern double RCP[8192];
 static inline int InitArf(lua_State *L)   // InitArf(str) -> before, total_hint, wgo_required, hgo_required
 {
     xscale = 1.0;  yscale = 1.0;  xdelta = 0.0;  ydelta = 0.0;  rotdeg = 0.0;
-    special_hint = 0;  dt_progress = 0;  dt_layer1 = 0;  dt_layer2 = 0;
+    special_hint = 0;  dt_progress = 0;
     return 0;
 }
 
@@ -67,15 +65,8 @@ static inline int SetRotDeg(lua_State *L) { rotdeg = luaL_checknumber(L,1); retu
 // Defold Lifecycle Related Stuff
 static const luaL_reg M[] =
 {
-    {"InitArf", InitArf},
-    {"UpdateArf", UpdateArf},
-    {"JudgeArf", JudgeArf},
-    {"FinalArf", FinalArf},
-    {"SetXScale", SetXScale},
-    {"SetYScale", SetYScale},
-    {"SetXDelta", SetXDelta},
-    {"SetYDelta", SetYDelta},
-    {"SetRotDeg", SetRotDeg},
+    {"InitArf", InitArf}, {"UpdateArf", UpdateArf}, {"JudgeArf", JudgeArf}, {"FinalArf", FinalArf},
+    {"SetXScale", SetXScale}, {"SetYScale", SetYScale}, {"SetXDelta", SetXDelta}, {"SetYDelta", SetYDelta}, {"SetRotDeg", SetRotDeg},
     {0, 0}
 };
 
