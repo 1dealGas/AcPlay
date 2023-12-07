@@ -1,5 +1,6 @@
 #define LIB_NAME "libArf2"
 #define MODULE_NAME "Arf2"
+#define S {if(!ArfSize) return 0;}
 
 #include <dmsdk/sdk.h>
 #include <dmsdk/dlib/vmath.h>
@@ -8,8 +9,10 @@
 #include <vector>
 #include <map>
 
-// API Globals
-Arf2* Arf;
+// Data & Globals
+// For Safety Concern, Nothing will happen if !ArfSize.
+uint64_t ArfSize = 0;
+char* ArfBuf = nullptr;
 static double xscale, yscale, xdelta, ydelta, rotdeg;
 
 // Internal Globals
@@ -28,29 +31,52 @@ extern double RCP[8192];
 
 
 // Script APIs, Under Construction
-static inline int InitArf(lua_State *L)   // InitArf(str) -> before, total_hint, wgo_required, hgo_required
+Arf2* Arf = nullptr;
+static inline int InitArf(lua_State *L)   // InitArf(str) -> before, total_hints, wgo_required, hgo_required
 {
     xscale = 1.0;  yscale = 1.0;  xdelta = 0.0;  ydelta = 0.0;  rotdeg = 0.0;
     special_hint = 0;  dt_progress = 0;
-    return 0;
+
+
+    const char* B = luaL_checklstring(L, 1, &ArfSize);
+    if(!ArfSize) return 0;
+
+    strcpy( ArfBuf = new char[ArfSize], B );
+    lua_gc(L, LUA_GCCOLLECT, 0);
+
+
+    DM_LUA_STACK_CHECK(L, 4);
+    Arf = GetMutableArf2( ArfBuf );
+    special_hint = Arf->special_hint();
+    lua_pushnumber( L, Arf->before() );
+    lua_pushnumber( L, Arf->total_hints() );
+    lua_pushnumber( L, Arf->wgo_required() );
+    lua_pushnumber( L, Arf->hgo_required() );
+    return 4;
 }
 
 
 typedef dmVMath::Vector3* v3p;
 static inline int UpdateArf(lua_State *L)   // UpdateArf(mstime, table_w/wi/h/hi/ht/a/ai/at) -> hint_lost, wgo/hgo/ago_used
-{
+{S
     return 0;
 }
 
 
-static inline int JudgeArf(lua_State *L)   // JudgeArf(mstime, table_touch) -> hint_hit, hint_lost
-{
+static inline int JudgeArf(lua_State *L)   // JudgeArf(mstime, table_touch) -> hint_hit, hint_lost, special_hint_judged
+{S
     return 0;
 }
 
 
 static inline int FinalArf(lua_State *L)
-{
+{S
+    delete [] ArfBuf;
+
+    ArfBuf = nullptr;
+    Arf = nullptr;
+    ArfSize = 0;
+    
     return 0;
 }
 
