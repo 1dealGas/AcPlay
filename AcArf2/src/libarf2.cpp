@@ -12,29 +12,72 @@
 // For Safety Concern, Nothing will happen if !ArfSize.
 static size_t ArfSize = 0;
 static char* ArfBuf = nullptr;
-static double xscale, yscale, xdelta, ydelta, rotdeg;
+static float xscale, yscale, xdelta, ydelta, rotsin, rotcos;
 
 // Internal Globals
+static float SIN, COS;
 static uint16_t special_hint, dt_p1, dt_p2;
 static std::map<uint32_t, uint8_t> last_vec;
 static std::vector<uint32_t> blnums;
 
 // Caches
-extern float SIN[901]; extern float COS[901];
-extern float ESIN[1001]; extern float ECOS[1001]; extern float SQRT[1001];
+extern float DSIN[901]; extern float DCOS[901];
+extern float ESIN[1001]; extern float ECOS[1001];
 extern double RCP[8192];
+
+
+// Assistant Ease Functions
+static inline float Quad(float ratio, int16_t sgn) {
+	if (sgn >= 0) return ratio*ratio ;
+	else {
+		ratio = 1.0f - ratio;
+		return ( 1.0f - ratio*ratio );
+	}
+}
+static inline void GetSINCOS(double degree) {
+	if( degree >= 0 ) {
+		uint64_t deg = (uint64_t)(degree*10.0) % 3600;
+		if(deg > 1800) {
+			if(deg > 2700)	{ SIN = -DSIN[3600-deg];	COS = DCOS[3600-deg];  }
+			else 			{ SIN = -DSIN[deg-1800];	COS = -DCOS[deg-1800]; }
+		}
+		else {
+			if(deg > 900)	{ SIN = DSIN[1800-deg];		COS = -DCOS[1800-deg]; }
+			else			{ SIN = DSIN[deg]; 			COS = DCOS[deg];	   }
+		}
+	}
+	else {   // sin(-x) = -sin(x), cos(-x) = cos(x)
+		uint64_t deg = (uint64_t)(-degree*10.0) % 3600;
+		if(deg > 1800) {
+			if(deg > 2700)	{ SIN = DSIN[3600-deg];		COS = DCOS[3600-deg];  }
+			else 			{ SIN = DSIN[deg-1800];		COS = -DCOS[deg-1800]; }
+		}
+		else {
+			if(deg > 900)	{ SIN = -DSIN[1800-deg];	COS = -DCOS[1800-deg]; }
+			else			{ SIN = -DSIN[deg]; 		COS = DCOS[deg];	   }
+		}
+	}
+}
+
 
 // Input Functions
 typedef dmVMath::Vector3* v3p;
 static inline bool has_touch_near( uint64_t hint, v3p touches[10] ) {
 
-	// Hint: (1)terminated+(19)judged_ms+(19)ms+(12)y+(13)x
+	// Hint: (1)TAG+(19)judged_ms+(19)ms+(12)y+(13)x
 	// x:[0,48]   visible -> [16,32]
 	// y:[0,24]   visible -> [8,16]
 
-	uint64_t u;					int16_t s;			// *0.87890625f  ->  /128.0f*112.5f
-	u = hint & 0x1fff;			s = u - 2048;		float hint_l = (float)s * 0.87890625f - 168.75f;		float hint_r = hint_l + 337.5f;
-	u = (hint>>13) & 0xfff;		s = u - 1024;		float hint_d = (float)s * 0.87890625f - 78.75f;			float hint_u = hint_d + 337.5f;
+	uint64_t u;
+	u = hint & 0x1fff;			float dx = (u-3072) * 0.0078125 * xscale;
+	u = (hint>>13) & 0xfff;		float dy = (u-1536) * 0.0078125 * yscale;
+
+	// Camera transformation integrated.
+	float posx = 8.0f + dx*rotcos - dy*rotsin + xdelta;
+	float posy = 4.0f + dx*rotsin + dy*rotcos + ydelta;
+
+	float hint_l = posx * 112.5f - 168.75f;		float hint_r = hint_l + 337.5f;
+	float hint_d = posy * 112.5f - 78.75f;		float hint_u = hint_d + 337.5f;
 
 	// For each finger,
 	for( uint8_t i=0; i<10; i++ ){
@@ -43,16 +86,16 @@ static inline bool has_touch_near( uint64_t hint, v3p touches[10] ) {
 		uint8_t fs = (uint8_t)( f->getZ() );
 
 		// if the finger is just pressed, or onscreen,
-		if ( (fs==1) || (fs==2) ){
+		if ( fs==1 || fs==2 ){
 
 			// check its x pivot
 			float x = f->getX();
-			if( (x>=hint_l) && (x<=hint_r) ) {
+			if( x>=hint_l && x<=hint_r ) {
 
 				// if no problem with pos_x of the touch, check its y pivot.
 				// if no problem with pos_y of the touch, return true.
 				float y = f->getY();
-				if ( (y>=hint_d) && (y<=hint_u) )  return true;
+				if ( y>=hint_d && y<=hint_u )  return true;
 
 			}
 		}
@@ -71,16 +114,17 @@ static inline bool is_safe_to_anmitsu( uint64_t hint ){
 
 	// Safe when blnums.size==0. The circulation is to be skipped then.
 	// For registered Hints,
-	for( uint16_t i=0; i<blnums.size(); i++ ){
+	auto bs = blnums.size();
+	for( uint16_t i=0; i<bs; i++ ){
 
 		// check its x pivot,
 		u = blnums[i] & 0x1fff;
-		if( (u>hint_l) && (u<hint_r) ){
+		if( u>hint_l && u<hint_r ){
 
 			// if problem happens with the x pivot,
 			// check its y pivot, and if problem happens with the y pivot, return false.
 			u = ( (blnums[i]) >> 13 ) & 0xfff;
-			if( (u>hint_d) && (u<hint_u) ) return false;
+			if( u>hint_d && u<hint_u ) return false;
 
 		}
 	}
@@ -92,6 +136,22 @@ static inline bool is_safe_to_anmitsu( uint64_t hint ){
 	
 }
 
+enum {HINT_NONJUDGED_NONLIT = 0, HINT_NONJUDGED_LIT = 1, HINT_JUDGED = 10, HINT_JUDGED_LIT, HINT_SWEEPED};
+static inline uint8_t HStatus(uint64_t Hint){
+	Hint >>= 44;
+	bool TAG = (bool)(Hint >> 19);
+	Hint &= 0x7ffff;
+	if( Hint==1 ) 			return HINT_SWEEPED;
+	else if(Hint) {
+		if(Hint >> 19)		return HINT_JUDGED_LIT;
+		else				return HINT_JUDGED;
+	}
+	else{
+		if(Hint >> 19) 		return HINT_NONJUDGED_LIT;
+		else				return HINT_NONJUDGED_NONLIT;
+	}
+}
+
 
 
 /* Script APIs, Under Construction
@@ -100,13 +160,14 @@ static Arf2* Arf = nullptr;
 #define S if(!ArfSize) return 0;
 static inline int InitArf(lua_State *L)   // InitArf(str) -> before, total_hints, wgo_required, hgo_required
 {
-	xscale = 1.0;  yscale = 1.0;  xdelta = 0.0;  ydelta = 0.0;  rotdeg = 0.0;
-	special_hint = 0;  dt_p1 = 0;  dt_p2 = 0;
+	xscale = 1.0;		yscale = 1.0;	xdelta = 0.0;	ydelta = 0.0;
+	SIN = 0.0f;			COS = 0.0f;		rotsin = 0.0f;	rotcos = 1.0;
+	special_hint = 0;	dt_p1 = 0;  	dt_p2 = 0;
 
 	const char* B = luaL_checklstring(L, 1, &ArfSize);
 	S ArfBuf = new char[ArfSize];
 	for(uint64_t i=0; i<ArfSize; i++) ArfBuf[i] = B[i];
-	lua_gc(L, LUA_GCCOLLECT, 0);
+	// lua_gc(L, LUA_GCCOLLECT, 0);
 
 	DM_LUA_STACK_CHECK(L, 4);
 	Arf = GetMutableArf2( ArfBuf );
@@ -141,20 +202,139 @@ static inline int JudgeArf(lua_State *L)   // JudgeArf(mstime, idelta, table_tou
 	// table_touch = { any_pressed, any_released, v(x,y,s)··· }, s0->invalid, s1->pressed, s2->onscreen, s3->released.
 	// fixed to contain 12 elements
 	double mstime = luaL_checknumber(L, 1);
-	double idelta = luaL_checknumber(L, 2);
-	lua_pop(L, 2);
+	int8_t min_dt = -37 + (int8_t)luaL_checknumber(L, 2);
+	int8_t max_dt = min_dt + 74;
+
+	lua_pushinteger(L, 1);								// ··t  ->  1
+	lua_gettable(L, 3);									// ··t  ->  1  ->  any_pressed
+	lua_pushinteger(L, 2);								// ··t  ->  1  ->  any_pressed  ->  2
+	lua_gettable(L, 3);									// ··t  ->  1  ->  any_pressed  ->  2  ->  any_released
+
+	bool any_pressed = lua_toboolean(L, 5);
+	if( lua_toboolean(L, 7) ) blnums.clear();			// Discard blocking conditions if any_released.
+	lua_pop(L, 4);										// ··t
 
 	v3p touches[10];
 	for( lua_Integer i=3; i<13; i++ ) {
-		//                                              // table_touch
-		lua_pushinteger(L, i);                          // table_touch  ->  i
-		lua_gettable(L, 1);                             // table_touch  ->  i  -> table_touch[i]
-		touches[i-3] = dmScript::CheckVector3(L, 3);
-		lua_pop(L, 2);                                  // table_touch
+		//	                                            // ··t
+		lua_pushinteger(L, i);                          // ··t  ->  i
+		lua_gettable(L, 3);                             // ··t  ->  i  ->  t[i]
+		touches[i-3] = dmScript::CheckVector3(L, 5);
+		lua_pop(L, 2);                                  // ··t
+	}
+	lua_pop(L, 3);										//
+
+
+	bool special_hint_judged;
+	lua_Number hint_hit, hint_lost;
+
+	// Acquired mstime, min/max dt, any pressed, touches[10] from Lua.
+	// Now we acquire some stuff from C++ logics.
+	auto hint = Arf -> mutable_hint();			auto idx_size = Arf -> index() -> size();
+	uint64_t _group = (uint64_t)mstime >> 9;	uint16_t which_group = _group>1 ? _group-1 : 0 ;
+			 _group = which_group + 3;			uint16_t byd1_group = _group<idx_size ? _group : idx_size;
+
+	if(any_pressed){
+
+		uint32_t min_time = 0;
+		for(; which_group<byd1_group; which_group++) {
+
+			auto current_hint_ids = Arf -> index() -> Get( which_group ) -> hidx();
+			auto how_many_hints = current_hint_ids->size();
+
+			for(uint16_t i=0; i<how_many_hints; i++){
+
+				auto current_hint_id = current_hint_ids->Get(i);
+				auto current_hint = hint->Get( current_hint_id );
+
+				// Acquire the status of current Hint.
+				uint64_t hint_time = (current_hint>>25) & 0x7ffff;
+				double dt = mstime - (double)hint_time;
+				/// Asserted to be sorted.
+				if(dt <- 510.0f) break;
+				if(dt >  470.0f) continue;
+				///
+				bool htn = has_touch_near(current_hint, touches);
+				uint8_t ch_status = HStatus(current_hint);
+
+				// For non-judged hints,
+				if( ch_status<10 ) {   // HINT_NONJUDGED
+					if(htn) {   // if we have touch(es) near the Hint,
+						if( dt>=-100.0f && dt<=100.0f ) {   // we try to judge the Hint if dt[-100ms,100ms].
+							bool checker_true = is_safe_to_anmitsu(current_hint);
+							if( !min_time || min_time==hint_time ){   // for earliest Hint(s) valid in this touch_press,
+
+								min_time = hint_time;
+								if( dt>=min_dt && dt<=max_dt )	hint_hit += 1;
+								else							hint_lost += 1;
+
+								uint64_t original_hint = current_hint & 0xfffffffffff;
+								hint -> Mutate(current_hint_id, ((uint64_t)mstime)<<44 + original_hint + 0x8000000000000000 );
+								if( current_hint_id == special_hint ) special_hint_judged = (bool)special_hint;
+							}
+							else if( checker_true ){   // for other Hint(s) valid and safe_to_anmitsu,
+
+								if( dt>=min_dt && dt<=max_dt )	hint_hit += 1;
+								else							hint_lost += 1;
+
+								uint64_t original_hint = current_hint & 0xfffffffffff;
+								hint -> Mutate(current_hint_id, ((uint64_t)mstime)<<44 + original_hint + 0x8000000000000000 );
+								if( current_hint_id == special_hint ) special_hint_judged = (bool)special_hint;
+							}
+							// for Hints unsuitable to judge, just switch it into HINT_NONJUDGED_LIT.
+							else hint -> Mutate( current_hint_id, (current_hint<<1) >> 1 + 0x8000000000000000 );
+						}
+						// for Hints out of judging range, just switch it into HINT_NONJUDGED_LIT.
+						else hint -> Mutate( current_hint_id, (current_hint<<1) >> 1 + 0x8000000000000000 );
+					}
+					else hint -> Mutate( current_hint_id, (current_hint<<1) >> 1 );
+				}
+
+				// For judged hints,
+				else if ( ch_status==HINT_JUDGED_LIT && (!htn) ){
+					hint -> Mutate( current_hint_id, (current_hint<<1) >> 1 );
+				}
+			}
+		}
+	}
+	else {
+		for(; which_group<byd1_group; which_group++) {
+
+			auto current_hint_ids = Arf -> index() -> Get( which_group ) -> hidx();
+			auto how_many_hints = current_hint_ids->size();
+
+			for(uint16_t i=0; i<how_many_hints; i++){
+
+				auto current_hint_id = current_hint_ids->Get(i);
+				auto current_hint = hint->Get( current_hint_id );
+
+				// Acquire the status of current Hint.
+				uint64_t hint_time = (current_hint>>25) & 0x7ffff;
+				double dt = mstime - (double)hint_time;
+				/// Asserted to be sorted.
+				if(dt <- 510.0f) break;
+				if(dt > 470.0f) continue;
+				///
+				bool htn = has_touch_near(current_hint, touches);
+				uint8_t ch_status = HStatus(current_hint);
+
+				if( ch_status<10 ) {   // HINT_NONJUDGED
+					if(htn) hint -> Mutate( current_hint_id, (current_hint<<1) >> 1 + 0x8000000000000000 );
+					else	hint -> Mutate( current_hint_id, (current_hint<<1) >> 1 );
+				}
+				else if ( ch_status==HINT_JUDGED_LIT && (!htn) ){
+					hint -> Mutate( current_hint_id, (current_hint<<1) >> 1 );
+				}
+			}
+		}
 	}
 
-
+	DM_LUA_STACK_CHECK(L, 3);
+	lua_pushnumber(L, hint_hit);
+	lua_pushnumber(L, hint_lost);
+	lua_pushboolean(L, special_hint_judged);
 	return 3;
+
 }
 
 
@@ -172,7 +352,11 @@ static inline int SetXScale(lua_State *L) { xscale = luaL_checknumber(L, 1); ret
 static inline int SetYScale(lua_State *L) { yscale = luaL_checknumber(L, 1); return 0; }
 static inline int SetXDelta(lua_State *L) { xdelta = luaL_checknumber(L, 1); return 0; }
 static inline int SetYDelta(lua_State *L) { ydelta = luaL_checknumber(L, 1); return 0; }
-static inline int SetRotDeg(lua_State *L) { rotdeg = luaL_checknumber(L, 1); return 0; }
+static inline int SetRotDeg(lua_State *L) {
+	GetSINCOS( luaL_checknumber(L, 1) );
+	rotsin = SIN;	rotcos = COS;
+	return 0;
+}
 static inline int NewTable(lua_State *L) {
 	DM_LUA_STACK_CHECK(L, 1);
 	lua_createtable( L, (int)luaL_checknumber(L,1), (int)luaL_checknumber(L, 2) );
