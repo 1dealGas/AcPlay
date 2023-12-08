@@ -101,3 +101,14 @@
     parameters:
     - name: rotdeg
       type: number
+
+  - name: NewTable
+    type: function
+    parameters:
+    - name: narr
+      type: number
+    - name: nrec
+      type: number
+    returns:
+    - name: new_table
+      type: table
