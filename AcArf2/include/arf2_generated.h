@@ -98,19 +98,6 @@ inline ::flatbuffers::Offset<WishChild> CreateWishChild(
   return builder_.Finish();
 }
 
-inline ::flatbuffers::Offset<WishChild> CreateWishChildDirect(
-    ::flatbuffers::FlatBufferBuilder &_fbb,
-    uint8_t p = 0,
-    uint32_t dt = 0,
-    const std::vector<uint32_t> *anodes = nullptr) {
-  auto anodes__ = anodes ? _fbb.CreateVector<uint32_t>(*anodes) : 0;
-  return CreateWishChild(
-      _fbb,
-      p,
-      dt,
-      anodes__);
-}
-
 struct WishGroup FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef WishGroupBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -184,20 +171,6 @@ inline ::flatbuffers::Offset<WishGroup> CreateWishGroup(
   return builder_.Finish();
 }
 
-inline ::flatbuffers::Offset<WishGroup> CreateWishGroupDirect(
-    ::flatbuffers::FlatBufferBuilder &_fbb,
-    uint32_t info = 0,
-    const std::vector<uint64_t> *nodes = nullptr,
-    const std::vector<::flatbuffers::Offset<WishChild>> *childs = nullptr) {
-  auto nodes__ = nodes ? _fbb.CreateVector<uint64_t>(*nodes) : 0;
-  auto childs__ = childs ? _fbb.CreateVector<::flatbuffers::Offset<WishChild>>(*childs) : 0;
-  return CreateWishGroup(
-      _fbb,
-      info,
-      nodes__,
-      childs__);
-}
-
 struct Arf2Index FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef Arf2IndexBuilder Builder;
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
@@ -255,18 +228,6 @@ inline ::flatbuffers::Offset<Arf2Index> CreateArf2Index(
   builder_.add_hidx(hidx);
   builder_.add_widx(widx);
   return builder_.Finish();
-}
-
-inline ::flatbuffers::Offset<Arf2Index> CreateArf2IndexDirect(
-    ::flatbuffers::FlatBufferBuilder &_fbb,
-    const std::vector<uint16_t> *widx = nullptr,
-    const std::vector<uint16_t> *hidx = nullptr) {
-  auto widx__ = widx ? _fbb.CreateVector<uint16_t>(*widx) : 0;
-  auto hidx__ = hidx ? _fbb.CreateVector<uint16_t>(*hidx) : 0;
-  return CreateArf2Index(
-      _fbb,
-      widx__,
-      hidx__);
 }
 
 struct Arf2 FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
@@ -435,37 +396,6 @@ inline ::flatbuffers::Offset<Arf2> CreateArf2(
   builder_.add_hgo_required(hgo_required);
   builder_.add_wgo_required(wgo_required);
   return builder_.Finish();
-}
-
-inline ::flatbuffers::Offset<Arf2> CreateArf2Direct(
-    ::flatbuffers::FlatBufferBuilder &_fbb,
-    uint32_t before = 0,
-    uint16_t total_hints = 0,
-    uint8_t wgo_required = 0,
-    uint8_t hgo_required = 0,
-    const std::vector<::flatbuffers::Offset<WishGroup>> *wish = nullptr,
-    const std::vector<uint64_t> *hint = nullptr,
-    uint16_t special_hint = 0,
-    const std::vector<uint64_t> *dts_layer1 = nullptr,
-    const std::vector<uint64_t> *dts_layer2 = nullptr,
-    const std::vector<::flatbuffers::Offset<Arf2Index>> *index = nullptr) {
-  auto wish__ = wish ? _fbb.CreateVector<::flatbuffers::Offset<WishGroup>>(*wish) : 0;
-  auto hint__ = hint ? _fbb.CreateVector<uint64_t>(*hint) : 0;
-  auto dts_layer1__ = dts_layer1 ? _fbb.CreateVector<uint64_t>(*dts_layer1) : 0;
-  auto dts_layer2__ = dts_layer2 ? _fbb.CreateVector<uint64_t>(*dts_layer2) : 0;
-  auto index__ = index ? _fbb.CreateVector<::flatbuffers::Offset<Arf2Index>>(*index) : 0;
-  return CreateArf2(
-      _fbb,
-      before,
-      total_hints,
-      wgo_required,
-      hgo_required,
-      wish__,
-      hint__,
-      special_hint,
-      dts_layer1__,
-      dts_layer2__,
-      index__);
 }
 
 inline const Arf2 *GetArf2(const void *buf) {
