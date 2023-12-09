@@ -141,14 +141,14 @@ static inline uint8_t HStatus(uint64_t Hint){
 	Hint >>= 44;
 	bool TAG = (bool)(Hint >> 19);
 	Hint &= 0x7ffff;
-	if( Hint==1 ) 			return HINT_SWEEPED;
+	if( Hint==1 ) 		return HINT_SWEEPED;
 	else if(Hint) {
-		if(Hint >> 19)		return HINT_JUDGED_LIT;
-		else				return HINT_JUDGED;
+		if(TAG)			return HINT_JUDGED_LIT;
+		else			return HINT_JUDGED;
 	}
 	else{
-		if(Hint >> 19) 		return HINT_NONJUDGED_LIT;
-		else				return HINT_NONJUDGED_NONLIT;
+		if(TAG) 		return HINT_NONJUDGED_LIT;
+		else			return HINT_NONJUDGED_NONLIT;
 	}
 }
 
