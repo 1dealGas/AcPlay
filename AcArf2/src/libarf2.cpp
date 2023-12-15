@@ -11,7 +11,7 @@
 // Data & Globals
 // For Safety Concern, Nothing will happen if !ArfSize.
 static size_t ArfSize = 0;
-static char* ArfBuf = nullptr;
+static unsigned char* ArfBuf = nullptr;
 static float xscale, yscale, xdelta, ydelta, rotsin, rotcos;
 
 // Internal Globals
@@ -21,22 +21,32 @@ static std::map<uint32_t, uint8_t> last_vec;
 static std::vector<uint32_t> blnums;
 
 // Caches
-extern float DSIN[901]; extern float DCOS[901];
-extern float ESIN[1001]; extern float ECOS[1001];
-extern double RCP[8192];
+extern const float DSIN[901]; extern const float DCOS[901];
+extern const float ESIN[1001]; extern const float ECOS[1001];
+extern const double RCP[8192];
 
 
 // Assistant Ease Functions
-static inline float Quad(float ratio, int16_t sgn) {
-	if (sgn >= 0) return ratio*ratio ;
-	else {
+static inline float Quad(float ratio, const int16_t sgn) {
+	if( sgn < 0 ) {
 		ratio = 1.0f - ratio;
 		return ( 1.0f - ratio*ratio );
 	}
+	else return ratio*ratio ;
 }
-static inline void GetSINCOS(double degree) {
+static inline uint16_t mod_degree( uint64_t deg ) {
+	do {
+		if(deg > 7200) {
+			if(deg > 14400) deg-=14400;
+			else deg-=7200;
+		}
+		else deg-=3600;
+	}	while(deg > 3600);
+	return deg;
+}
+static inline void GetSINCOS(const double degree) {
 	if( degree >= 0 ) {
-		uint64_t deg = (uint64_t)(degree*10.0) % 3600;
+		uint64_t deg = (uint64_t)(degree*10.0);			deg = (deg>3600) ? mod_degree(deg) : deg ;
 		if(deg > 1800) {
 			if(deg > 2700)	{ SIN = -DSIN[3600-deg];	COS = DCOS[3600-deg];  }
 			else 			{ SIN = -DSIN[deg-1800];	COS = -DCOS[deg-1800]; }
@@ -47,7 +57,7 @@ static inline void GetSINCOS(double degree) {
 		}
 	}
 	else {   // sin(-x) = -sin(x), cos(-x) = cos(x)
-		uint64_t deg = (uint64_t)(-degree*10.0) % 3600;
+		uint64_t deg = (uint64_t)(-degree*10.0);		deg = (deg>3600) ? mod_degree(deg) : deg ;
 		if(deg > 1800) {
 			if(deg > 2700)	{ SIN = DSIN[3600-deg];		COS = DCOS[3600-deg];  }
 			else 			{ SIN = DSIN[deg-1800];		COS = -DCOS[deg-1800]; }
@@ -62,15 +72,15 @@ static inline void GetSINCOS(double degree) {
 
 // Input Functions
 typedef dmVMath::Vector3* v3p;
-static inline bool has_touch_near( uint64_t hint, v3p touches[10] ) {
+static inline bool has_touch_near( const uint64_t hint, const v3p touches[10] ) {
 
 	// Hint: (1)TAG+(19)judged_ms+(19)ms+(12)y+(13)x
 	// x:[0,48]   visible -> [16,32]
 	// y:[0,24]   visible -> [8,16]
 
 	uint64_t u;
-	u = hint & 0x1fff;			float dx = (u-3072) * 0.0078125 * xscale;
-	u = (hint>>13) & 0xfff;		float dy = (u-1536) * 0.0078125 * yscale;
+	u = hint & 0x1fff;			float dx = ( (int16_t)u - 3072 ) * 0.0078125f * xscale;
+	u = (hint>>13) & 0xfff;		float dy = ( (int16_t)u - 1536 ) * 0.0078125f * yscale;
 
 	// Camera transformation integrated.
 	float posx = 8.0f + dx*rotcos - dy*rotsin + xdelta;
@@ -90,12 +100,12 @@ static inline bool has_touch_near( uint64_t hint, v3p touches[10] ) {
 
 			// check its x pivot
 			float x = f->getX();
-			if( x>=hint_l && x<=hint_r ) {
+			if( (x>=hint_l) && x<=hint_r ) {
 
 				// if no problem with pos_x of the touch, check its y pivot.
 				// if no problem with pos_y of the touch, return true.
 				float y = f->getY();
-				if ( y>=hint_d && y<=hint_u )  return true;
+				if ( (y>=hint_d) && y<=hint_u )  return true;
 
 			}
 		}
@@ -106,25 +116,25 @@ static inline bool has_touch_near( uint64_t hint, v3p touches[10] ) {
 
 }
 
-static inline bool is_safe_to_anmitsu( uint64_t hint ){
+static inline bool is_safe_to_anmitsu( const uint64_t hint ){
 
 	uint64_t u;					// No overflowing risk here.
-	u = hint & 0x1fff;			int16_t hint_l = u - 384;		int16_t hint_r = u + 384;
-	u = (hint>>13) & 0xfff;		int16_t hint_d = u - 384;		int16_t hint_u = u + 384;
+	u = hint & 0x1fff;			int16_t hint_l = (int16_t)u - 384;		int16_t hint_r = (int16_t)u + 384;
+	u = (hint>>13) & 0xfff;		int16_t hint_d = (int16_t)u - 384;		int16_t hint_u = (int16_t)u + 384;
 
 	// Safe when blnums.size==0. The circulation is to be skipped then.
 	// For registered Hints,
-	auto bs = blnums.size();
+	uint32_t blnum;				uint16_t bs = blnums.size();
 	for( uint16_t i=0; i<bs; i++ ){
 
 		// check its x pivot,
-		u = blnums[i] & 0x1fff;
-		if( u>hint_l && u<hint_r ){
+		blnum = blnums[i];		u = blnum & 0x1fff;
+		if( (u>hint_l) && u<hint_r ){
 
 			// if problem happens with the x pivot,
 			// check its y pivot, and if problem happens with the y pivot, return false.
-			u = ( (blnums[i]) >> 13 ) & 0xfff;
-			if( u>hint_d && u<hint_u ) return false;
+			u = ( blnum >> 13 ) & 0xfff;
+			if( (u>hint_d) && u<hint_u ) return false;
 
 		}
 	}
@@ -136,7 +146,8 @@ static inline bool is_safe_to_anmitsu( uint64_t hint ){
 	
 }
 
-enum {HINT_NONJUDGED_NONLIT = 0, HINT_NONJUDGED_LIT = 1, HINT_JUDGED = 10, HINT_JUDGED_LIT, HINT_SWEEPED};
+enum { HINT_NONJUDGED_NONLIT = 0, HINT_NONJUDGED_LIT = 1,
+       HINT_JUDGED = 10, HINT_JUDGED_LIT, HINT_SWEEPED    };
 static inline uint8_t HStatus(uint64_t Hint){
 	Hint >>= 44;
 	bool TAG = (bool)(Hint >> 19);
@@ -158,17 +169,29 @@ static inline uint8_t HStatus(uint64_t Hint){
    S --> Safety guaranteed, by precluding the memory leakage.  */
 static Arf2* Arf = nullptr;
 #define S if(!ArfSize) return 0;
-static inline int InitArf(lua_State *L)   // InitArf(str) -> before, total_hints, wgo_required, hgo_required
+
+// InitArf(str) -> before, total_hints, wgo_required, hgo_required
+// Recommended Usage:
+//     local b,t,w,h = InitArf( sys.load_resource( "Arf/1011.ar" ) )
+//     collectgarbage()
+static inline int InitArf(lua_State *L)
 {
+	// Set Global Variables
 	xscale = 1.0;		yscale = 1.0;	xdelta = 0.0;	ydelta = 0.0;
 	SIN = 0.0f;			COS = 0.0f;		rotsin = 0.0f;	rotcos = 1.0;
 	special_hint = 0;	dt_p1 = 0;  	dt_p2 = 0;
 
-	const char* B = luaL_checklstring(L, 1, &ArfSize);
-	S ArfBuf = new char[ArfSize];
-	for(uint64_t i=0; i<ArfSize; i++) ArfBuf[i] = B[i];
-	// lua_gc(L, LUA_GCCOLLECT, 0);
+	// Ensure a clean Initialization
+	last_vec.clear();
+	blnums.clear();
 
+	// For Defold hasn't exposed something like dmResource::LoadResource(),
+	// there we copy the Lua String returned by sys.load_resource() to acquire the mutable buffer.
+	const char* B = luaL_checklstring(L, 1, &ArfSize);
+	S ArfBuf = (unsigned char*) malloc(ArfSize);
+	memcpy(ArfBuf, B, ArfSize);
+
+	// Do API Stuff
 	DM_LUA_STACK_CHECK(L, 4);
 	Arf = GetMutableArf2( ArfBuf );
 	special_hint = Arf->special_hint();
@@ -179,8 +202,8 @@ static inline int InitArf(lua_State *L)   // InitArf(str) -> before, total_hints
 	return 4;
 }
 
-
-static inline int UpdateArf(lua_State *L)   // UpdateArf(mstime, table_w/wi/h/hi/ht/a/ai/at) -> hint_lost, wgo/hgo/ago_used
+// UpdateArf(mstime, table_w/wi/h/hi/ht/a/ai/at) -> hint_lost, wgo/hgo/ago_used
+static inline int UpdateArf(lua_State *L)
 {S
 	// Process msTime
 	uint32_t mstime = luaL_checknumber(L, 1);
@@ -196,19 +219,20 @@ static inline int UpdateArf(lua_State *L)   // UpdateArf(mstime, table_w/wi/h/hi
 	return 4;
 }
 
-
-static inline int JudgeArf(lua_State *L)   // JudgeArf(mstime, idelta, table_touch) -> hint_hit, hint_lost, special_hint_judged
+// JudgeArf(mstime, idelta, table_touch) -> hint_hit, hint_lost, special_hint_judged
+static inline int JudgeArf(lua_State *L)
 {S
-	// table_touch = { any_pressed, any_released, v(x,y,s)··· }, s0->invalid, s1->pressed, s2->onscreen, s3->released.
+	// table_touch = { any_pressed, any_released, v(x,y,s)··· }
+	// s0->invalid, s1->pressed, s2->onscreen, s3->released
 	// fixed to contain 12 elements
 	double mstime = luaL_checknumber(L, 1);
 	int8_t min_dt = -37 + (int8_t)luaL_checknumber(L, 2);
 	int8_t max_dt = min_dt + 74;
 
 	lua_pushinteger(L, 1);								// ··t  ->  1
-	lua_gettable(L, 3);									// ··t  ->  1  ->  any_pressed
-	lua_pushinteger(L, 2);								// ··t  ->  1  ->  any_pressed  ->  2
-	lua_gettable(L, 3);									// ··t  ->  1  ->  any_pressed  ->  2  ->  any_released
+	lua_gettable(L, 3);									// ··t  ->  1  ->  ap
+	lua_pushinteger(L, 2);								// ··t  ->  1  ->  ap  ->  2
+	lua_gettable(L, 3);									// ··t  ->  1  ->  ap  ->  2  ->  ar
 
 	bool any_pressed = lua_toboolean(L, 5);
 	if( lua_toboolean(L, 7) ) blnums.clear();			// Discard blocking conditions if any_released.
@@ -262,15 +286,20 @@ static inline int JudgeArf(lua_State *L)   // JudgeArf(mstime, idelta, table_tou
 					if(htn) {   // if we have touch(es) near the Hint,
 						if( dt>=-100.0f && dt<=100.0f ) {   // we try to judge the Hint if dt[-100ms,100ms].
 							bool checker_true = is_safe_to_anmitsu(current_hint);
-							if( !min_time || min_time==hint_time ){   // for earliest Hint(s) valid in this touch_press,
+
+							// for earliest Hint(s) valid in this touch_press,
+							if( !min_time || min_time==hint_time ){
 
 								min_time = hint_time;
 								if( dt>=min_dt && dt<=max_dt )	hint_hit += 1;
 								else							hint_lost += 1;
 
 								uint64_t original_hint = current_hint & 0xfffffffffff;
-								hint -> Mutate(current_hint_id, ((uint64_t)mstime)<<44 + original_hint + 0x8000000000000000 );
-								if( current_hint_id == special_hint ) special_hint_judged = (bool)special_hint;
+								hint -> Mutate(current_hint_id, ((uint64_t)mstime)<<44 +
+								original_hint + 0x8000000000000000 );
+
+								if( current_hint_id == special_hint )
+								special_hint_judged = (bool)special_hint;
 							}
 							else if( checker_true ){   // for other Hint(s) valid and safe_to_anmitsu,
 
@@ -278,14 +307,19 @@ static inline int JudgeArf(lua_State *L)   // JudgeArf(mstime, idelta, table_tou
 								else							hint_lost += 1;
 
 								uint64_t original_hint = current_hint & 0xfffffffffff;
-								hint -> Mutate(current_hint_id, ((uint64_t)mstime)<<44 + original_hint + 0x8000000000000000 );
-								if( current_hint_id == special_hint ) special_hint_judged = (bool)special_hint;
+								hint -> Mutate(current_hint_id, ((uint64_t)mstime)<<44 +
+								original_hint + 0x8000000000000000 );
+
+								if( current_hint_id == special_hint )
+								special_hint_judged = (bool)special_hint;
 							}
 							// for Hints unsuitable to judge, just switch it into HINT_NONJUDGED_LIT.
-							else hint -> Mutate( current_hint_id, (current_hint<<1) >> 1 + 0x8000000000000000 );
+							else hint -> Mutate( current_hint_id,
+							(current_hint<<1) >> 1 + 0x8000000000000000 );
 						}
 						// for Hints out of judging range, just switch it into HINT_NONJUDGED_LIT.
-						else hint -> Mutate( current_hint_id, (current_hint<<1) >> 1 + 0x8000000000000000 );
+						else hint -> Mutate( current_hint_id,
+						(current_hint<<1) >> 1 + 0x8000000000000000 );
 					}
 					else hint -> Mutate( current_hint_id, (current_hint<<1) >> 1 );
 				}
@@ -341,7 +375,7 @@ static inline int JudgeArf(lua_State *L)   // JudgeArf(mstime, idelta, table_tou
 static inline int FinalArf(lua_State *L)
 {S
 	Arf = nullptr;
-	delete [] ArfBuf;
+	free(ArfBuf);
 	ArfBuf = nullptr;
 	ArfSize = 0;
 	return 0;
@@ -359,7 +393,7 @@ static inline int SetRotDeg(lua_State *L) {
 }
 static inline int NewTable(lua_State *L) {
 	DM_LUA_STACK_CHECK(L, 1);
-	lua_createtable( L, (int)luaL_checknumber(L,1), (int)luaL_checknumber(L, 2) );
+	lua_createtable( L, (uint32_t)luaL_checknumber(L,1), (uint32_t)luaL_checknumber(L, 2) );
 	return 1;
 }
 
@@ -368,7 +402,9 @@ static inline int NewTable(lua_State *L) {
 static const luaL_reg M[] =
 {
 	{"InitArf", InitArf}, {"UpdateArf", UpdateArf}, {"JudgeArf", JudgeArf}, {"FinalArf", FinalArf},
-	{"SetXScale", SetXScale}, {"SetYScale", SetYScale}, {"SetXDelta", SetXDelta}, {"SetYDelta", SetYDelta}, {"SetRotDeg", SetRotDeg},
+	{"SetXScale", SetXScale}, {"SetYScale", SetYScale},
+	{"SetXDelta", SetXDelta}, {"SetYDelta", SetYDelta},
+	{"SetRotDeg", SetRotDeg},
 	{"NewTable", NewTable},
 	{0, 0}
 };
