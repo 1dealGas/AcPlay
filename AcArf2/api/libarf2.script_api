@@ -51,6 +51,12 @@
       type: number
 
 
+  - name: SetTouches
+    type: function
+    parameters:
+    - name: v3__no1_to_no10
+      type: Vector3
+
   - name: JudgeArf
     type: function
     parameters:
@@ -58,8 +64,10 @@
       type: number
     - name: idelta
       type: number
-    - name: table_touch
-      type: table
+    - name: any_pressed
+      type: boolean
+    - name: any_released
+      type: boolean
     returns:
     - name: hint_hit
       type: number
