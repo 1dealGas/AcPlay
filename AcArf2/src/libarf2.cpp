@@ -209,8 +209,7 @@ static inline int UpdateArf(lua_State *L)
 {S
 	// Prepare Returns & Process msTime
 	uint8_t wgo_used, hgo_used, ago_used;			uint16_t hint_lost;
-	uint32_t mstime = luaL_checknumber(L, 1);		uint32_t idx_group = mstime >> 9;
-
+	uint32_t mstime = (uint32_t)luaL_checknumber(L, 1);
 
 	// Check DTime
 	// For Arf2 charts(fumens), init_ms of each layer's 1st DeltaNode must be 0ms.
@@ -284,17 +283,44 @@ static inline int UpdateArf(lua_State *L)
 
 
 	// Search & Interpolate & Render Wishes
+	uint32_t widx_group = mstime >> 9;
 
-	// Sweep Hints
 
-	// Render Hints & Effects
+	// Sweep Hints, then Render Hints & Effects
+	auto hint = Arf -> mutable_hint();		auto idx_size = Arf -> index() -> size();
+	uint32_t _group = mstime >> 9;			uint16_t which_group = _group>1 ? _group-1 : 0 ;
+			 _group = which_group + 3;		uint16_t byd1_group = _group<idx_size ? _group : idx_size;
+
+	for(; which_group<byd1_group; which_group++) {
+
+		auto current_hint_ids = Arf -> index() -> Get( which_group ) -> hidx();
+		auto how_many_hints = current_hint_ids->size();
+
+		for(uint16_t i=0; i<how_many_hints; i++){
+
+				auto current_hint_id = current_hint_ids->Get(i);
+				auto current_hint = hint->Get( current_hint_id );
+
+				// Acquire the status of current Hint.
+				uint64_t hint_time = (current_hint>>25) & 0x7ffff;
+				uint32_t dt = mstime - (uint32_t)hint_time;
+				/// Asserted to be sorted.
+				if(dt <- 510) break;
+				if(dt >  470) continue;
+				///
+				uint8_t ch_status = HStatus(current_hint);
+				if( (dt>100) && ch_status<2 ) {   // Sweep, before generating rendering parameters.
+					hint_lost += 1;
+					hint -> Mutate(current_hint_id, current_hint & 0xfffffffffff + 0x100000000000 );
+					ch_status = HINT_SWEEPED;
+				}
+
+		}
+	}
 
 	// Do Returns
-	DM_LUA_STACK_CHECK(L, 4);
-	lua_pushnumber( L, hint_lost );
-	lua_pushnumber( L, wgo_used );
-	lua_pushnumber( L, hgo_used );
-	lua_pushnumber( L, ago_used );
+	DM_LUA_STACK_CHECK(L, 4);			lua_pushnumber( L, hint_lost );
+	lua_pushnumber( L, wgo_used );		lua_pushnumber( L, hgo_used );		lua_pushnumber( L, ago_used );
 	return 4;
 }
 
@@ -306,7 +332,6 @@ static inline int SetTouches(lua_State *L) {
 	for( uint8_t i=0; i<10; i++)  T[i] = dmScript::CheckVector3(L, i+1);
 	return 0;
 }
-
 // JudgeArf(mstime, idelta, any_pressed, any_released) -> hint_hit, hint_lost, special_hint_judged
 static inline int JudgeArf(lua_State *L)
 {S
@@ -349,7 +374,7 @@ static inline int JudgeArf(lua_State *L)
 				bool htn = has_touch_near(current_hint);
 
 				// For non-judged hints,
-				if( ch_status<10 ) {   // HINT_NONJUDGED
+				if( ch_status<2 ) {   // HINT_NONJUDGED
 					if(htn) {   // if we have touch(es) near the Hint,
 						if( dt>=-100.0f && dt<=100.0f ) {   // we try to judge the Hint if dt[-100ms,100ms].
 							bool checker_true = is_safe_to_anmitsu(current_hint);
@@ -420,7 +445,7 @@ static inline int JudgeArf(lua_State *L)
 				uint8_t ch_status = HStatus(current_hint);
 				bool htn = has_touch_near(current_hint);
 
-				if( ch_status<10 ) {   // HINT_NONJUDGED
+				if( ch_status<2 ) {   // HINT_NONJUDGED
 					if(htn) hint -> Mutate( current_hint_id, (current_hint<<1) >> 1 + 0x8000000000000000 );
 					else	hint -> Mutate( current_hint_id, (current_hint<<1) >> 1 );
 				}
@@ -466,7 +491,7 @@ static inline int NewTable(lua_State *L) {
 }
 
 
-// Defold Lifecycle Related Stuff
+// Defold Binding Related Stuff
 static const luaL_reg M[] =
 {
 	{"InitArf", InitArf}, {"UpdateArf", UpdateArf}, {"FinalArf", FinalArf},
