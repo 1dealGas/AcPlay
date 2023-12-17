@@ -84,11 +84,11 @@ static inline bool has_touch_near(const uint64_t hint) {
 	u = (hint>>13) & 0xfff;		float dy = ( (int16_t)u - 1536 ) * 0.0078125f * yscale;
 
 	// Camera transformation integrated.
-	float posx = 8.0f + dx*rotcos - dy*rotsin + xdelta;
-	float posy = 4.0f + dx*rotsin + dy*rotcos + ydelta;
+	float hint_l = 8.0f + dx*rotcos - dy*rotsin + xdelta;
+	float hint_d = 4.0f + dx*rotsin + dy*rotcos + ydelta;
 
-	float hint_l = posx * 112.5f - 168.75f;		float hint_r = hint_l + 337.5f;
-	float hint_d = posy * 112.5f - 78.75f;		float hint_u = hint_d + 337.5f;
+	hint_l = hint_l * 112.5f - 168.75f;		float hint_r = hint_l + 337.5f;
+	hint_d = hint_d * 112.5f - 78.75f;		float hint_u = hint_d + 337.5f;
 
 	// For each finger,
 	for( uint8_t i=0; i<10; i++ ){
@@ -205,6 +205,8 @@ static inline int InitArf(lua_State *L)
 
 
 // UpdateArf(mstime, table_w/wi/h/hi/ht/a/ai/at) -> hint_lost, wgo/hgo/ago_used
+enum { HIT, EARLY, LATE, SWEEPED };
+enum { TBL_W=2, TBL_WI, TBL_H, TBL_HI, TBL_HT, TBL_A, TBL_AI, TBL_AT };
 static inline int UpdateArf(lua_State *L)
 {S
 	// Prepare Returns & Process msTime
@@ -292,28 +294,29 @@ static inline int UpdateArf(lua_State *L)
 			 _group = which_group + 3;		uint16_t byd1_group = _group<idx_size ? _group : idx_size;
 
 	for(; which_group<byd1_group; which_group++) {
-
 		auto current_hint_ids = Arf -> index() -> Get( which_group ) -> hidx();
 		auto how_many_hints = current_hint_ids->size();
 
-		for(uint16_t i=0; i<how_many_hints; i++){
+		for(uint16_t i=0; i<how_many_hints; i++) {
+			auto current_hint_id = current_hint_ids->Get(i);
+			auto current_hint = hint->Get( current_hint_id );
 
-				auto current_hint_id = current_hint_ids->Get(i);
-				auto current_hint = hint->Get( current_hint_id );
+			uint64_t u;   // Acquire the status of current Hint.
+			u = (current_hint>>25) & 0x7ffff;		uint32_t dt = mstime - (uint32_t)u;
+			if(dt < -510) break;					if(dt > 470) continue;   // Asserted to be sorted.
 
-				// Acquire the status of current Hint.
-				uint64_t hint_time = (current_hint>>25) & 0x7ffff;
-				uint32_t dt = mstime - (uint32_t)hint_time;
-				/// Asserted to be sorted.
-				if(dt <- 510) break;
-				if(dt >  470) continue;
-				///
-				uint8_t ch_status = HStatus(current_hint);
-				if( (dt>100) && ch_status<2 ) {   // Sweep, before generating rendering parameters.
-					hint_lost += 1;
-					hint -> Mutate(current_hint_id, current_hint & 0xfffffffffff + 0x100000000000 );
-					ch_status = HINT_SWEEPED;
-				}
+			uint8_t ch_status = HStatus(current_hint);
+			if( (dt>100) && ch_status<2 ) {   // Sweep, before generating rendering parameters.
+				hint_lost += 1;
+				hint -> Mutate(current_hint_id, current_hint & 0xfffffffffff + 0x100000000000 );
+				ch_status = HINT_SWEEPED;
+			}
+			u = (current_hint<<1) >> 45;			uint32_t pt = mstime - (uint32_t)u;
+
+			u = current_hint & 0x1fff;				float dx = ( (int16_t)u - 3072 ) * 0.0078125f * xscale;
+			u = (current_hint>>13) & 0xfff;			float dy = ( (int16_t)u - 1536 ) * 0.0078125f * yscale;
+			float posx = (8.0f + dx*rotcos - dy*rotsin + xdelta) * 112.5f;
+			float posy = (4.0f + dx*rotsin + dy*rotcos + ydelta) * 112.5f;
 
 		}
 	}
@@ -354,12 +357,10 @@ static inline int JudgeArf(lua_State *L)
 
 		uint32_t min_time = 0;
 		for(; which_group<byd1_group; which_group++) {
-
 			auto current_hint_ids = Arf -> index() -> Get( which_group ) -> hidx();
 			auto how_many_hints = current_hint_ids->size();
 
-			for(uint16_t i=0; i<how_many_hints; i++){
-
+			for(uint16_t i=0; i<how_many_hints; i++) {
 				auto current_hint_id = current_hint_ids->Get(i);
 				auto current_hint = hint->Get( current_hint_id );
 
@@ -426,12 +427,10 @@ static inline int JudgeArf(lua_State *L)
 	}
 	else {
 		for(; which_group<byd1_group; which_group++) {
-
 			auto current_hint_ids = Arf -> index() -> Get( which_group ) -> hidx();
 			auto how_many_hints = current_hint_ids->size();
 
-			for(uint16_t i=0; i<how_many_hints; i++){
-
+			for(uint16_t i=0; i<how_many_hints; i++) {
 				auto current_hint_id = current_hint_ids->Get(i);
 				auto current_hint = hint->Get( current_hint_id );
 
