@@ -73,6 +73,7 @@ static inline void GetSINCOS(const double degree) {
 // Input Functions
 static dmVMath::Vector3* T[10];
 typedef dmVMath::Vector3 v3, *v3p;
+typedef dmVMath::Vector4 v4, *v4p;
 static inline bool has_touch_near(const uint64_t hint) {
 
 	// Hint: (1)TAG+(19)judged_ms+(19)ms+(12)y+(13)x
@@ -204,14 +205,15 @@ static inline int InitArf(lua_State *L)
 }
 
 
-// UpdateArf(mstime, table_w/wi/h/hi/ht/a/ai/at) -> hint_lost, wgo/hgo/ago_used
-enum { HIT, EARLY, LATE, SWEEPED };
-enum { TBL_W=2, TBL_WI, TBL_H, TBL_HI, TBL_HT, TBL_A, TBL_AI, TBL_AT };
+// UpdateArf(mstime, table_wpos/wst/hpos/htint/apos/alti/arti/ainfo) -> hint_lost, wgo/hgo/ago_used
+enum { TBL_WPOS=2, TBL_WST, TBL_HPOS, TBL_HTINT, TBL_APOS, TBL_ALTINT, TBL_ARTINT, TBL_AINFO, P=9 };
 static inline int UpdateArf(lua_State *L)
 {S
 	// Prepare Returns & Process msTime
+	// Z Distribution: Wish{0,0.05,0.1,0.15}  Hint(-0.06,0)
 	uint8_t wgo_used, hgo_used, ago_used;			uint16_t hint_lost;
 	uint32_t mstime = (uint32_t)luaL_checknumber(L, 1);
+	DM_LUA_STACK_CHECK(L, 5);
 
 	// Check DTime
 	// For Arf2 charts(fumens), init_ms of each layer's 1st DeltaNode must be 0ms.
@@ -302,7 +304,7 @@ static inline int UpdateArf(lua_State *L)
 			auto current_hint = hint->Get( current_hint_id );
 
 			uint64_t u;   // Acquire the status of current Hint.
-			u = (current_hint>>25) & 0x7ffff;		uint32_t dt = mstime - (uint32_t)u;
+			u = (current_hint>>25) & 0x7ffff;		int32_t dt = mstime - (int32_t)u;
 			if(dt < -510) break;					if(dt > 470) continue;   // Asserted to be sorted.
 
 			uint8_t ch_status = HStatus(current_hint);
@@ -318,12 +320,28 @@ static inline int UpdateArf(lua_State *L)
 			float posx = (8.0f + dx*rotcos - dy*rotsin + xdelta) * 112.5f;
 			float posy = (4.0f + dx*rotsin + dy*rotcos + ydelta) * 112.5f;
 
+			// Prepare Render Elements
+			// Is it possible to make these elems managed by C++ logics?
+			lua_rawgeti(L, TBL_HPOS, hgo_used+1);		v3p hpos = dmScript::CheckVector3(L, P+1);
+			lua_rawgeti(L, TBL_HTINT, hgo_used+1);		v4p htint = dmScript::CheckVector4(L, P+2);
+			lua_rawgeti(L, TBL_APOS, ago_used+1);		v3p apos = dmScript::CheckVector3(L, P+3);
+			lua_rawgeti(L, TBL_ALTINT, ago_used+1);		v4p altint = dmScript::CheckVector4(L, P+4);
+			lua_rawgeti(L, TBL_ARTINT, ago_used+1);		v4p artint = dmScript::CheckVector4(L, P+5);
+			lua_pop(L, 5);
+
+			// Start The Access.
+			if( dt < -370 ) {
+				float hi_rt = 0.1337f + 0.07f * (510+dt) / 140.0f;
+				hpos -> setX(posx);		hpos -> setY(posy);		hpos -> setZ( -(0.05f + pt*0.00001f) );
+				htint -> setX(hi_rt);	htint -> setY(hi_rt);	htint -> setZ(hi_rt);
+				hgo_used++;
+			}
 		}
 	}
 
-	// Do Returns
-	DM_LUA_STACK_CHECK(L, 4);			lua_pushnumber( L, hint_lost );
-	lua_pushnumber( L, wgo_used );		lua_pushnumber( L, hgo_used );		lua_pushnumber( L, ago_used );
+	// Do Returns. No need to check the capacity of Lua Stack.
+	lua_pushnumber( L, hint_lost );		lua_pushnumber( L, wgo_used );
+	lua_pushnumber( L, hgo_used );		lua_pushnumber( L, ago_used );
 	return 4;
 }
 
@@ -368,7 +386,7 @@ static inline int JudgeArf(lua_State *L)
 				uint64_t hint_time = (current_hint>>25) & 0x7ffff;
 				double dt = mstime - (double)hint_time;
 				/// Asserted to be sorted.
-				if(dt <- 510.0f) break;
+				if(dt <- 370.0f) break;
 				if(dt >  470.0f) continue;
 				///
 				uint8_t ch_status = HStatus(current_hint);
