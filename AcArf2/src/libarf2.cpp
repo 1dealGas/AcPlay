@@ -207,17 +207,94 @@ static inline int InitArf(lua_State *L)
 // UpdateArf(mstime, table_w/wi/h/hi/ht/a/ai/at) -> hint_lost, wgo/hgo/ago_used
 static inline int UpdateArf(lua_State *L)
 {S
-	// Process msTime
-	uint32_t mstime = luaL_checknumber(L, 1);
-	uint32_t idx_group = mstime >> 9;
+	// Prepare Returns & Process msTime
+	uint8_t wgo_used, hgo_used, ago_used;			uint16_t hint_lost;
+	uint32_t mstime = luaL_checknumber(L, 1);		uint32_t idx_group = mstime >> 9;
+
 
 	// Check DTime
+	// For Arf2 charts(fumens), init_ms of each layer's 1st DeltaNode must be 0ms.
+	// [) Left Close, Right Open
+	double dt1;
+	auto dts1 = Arf -> dts_layer1();		auto dts1_last = dts1->size() - 1;
+	while(!dt1) {
+		if( dt_p1 >= dts1_last ) {   // "==" is replaced by ">=" to enhance the robustness.
+			uint64_t last_deltanode = dts1 -> Get(dts1_last);		uint64_t u;
+			u = (last_deltanode>>32) & 0x3ffff;						uint32_t init_ms = u*2;
+			if( init_ms <= mstime ) {
+				u = last_deltanode & 0xffffffff;					double base = (double)u / 100000.0;
+				u = last_deltanode >> 50;							double ratio = (double)u / 100000.0;
+				dt1 = base + ratio * (mstime - init_ms);			break;
+			}
+			else dt_p1--;
+		}
+		while( dt_p1 < dts1_last ) {   // ++ or --? Not determined this time.
+			uint64_t u;
 
-	// Search & Interpolate Wishes
+			uint64_t next_deltanode = dts1 -> Get(dt_p1+1);
+			u = (next_deltanode>>32) & 0x3ffff;						uint32_t next_init_ms = u*2;
+			if( mstime >= next_init_ms ) { dt_p1++; continue; }
+
+			uint64_t current_deltanode = dts1 -> Get(dt_p1);
+			u = (current_deltanode>>32) & 0x3ffff;					uint32_t current_init_ms = u*2;
+			if( mstime < current_init_ms ) { dt_p1--; continue; }
+
+			u = next_deltanode & 0xffffffff;						double next_base = (double)u / 100000.0;
+			u = current_deltanode & 0xffffffff;						double current_base = (double)u / 100000.0;
+			u = current_deltanode >> 50;							double current_ratio = (double)u / 100000.0;
+			if( current_base > next_base ) dt1 = current_base - current_ratio * (mstime - current_init_ms);
+			else dt1 = current_base + current_ratio * (mstime - current_init_ms);
+			break;
+		}
+	}
+
+	// Same. It makes no sense to use an array/vector for the stuff fixed to contain 2 elements.
+	double dt2;
+	auto dts2 = Arf -> dts_layer2();		auto dts2_last = dts2->size() - 1;
+	while(!dt2) {
+		if( dt_p2 >= dts2_last ) {
+			uint64_t last_deltanode = dts2 -> Get(dts2_last);		uint64_t u;
+			u = (last_deltanode>>32) & 0x3ffff;						uint32_t init_ms = u*2;
+			if( init_ms <= mstime ) {
+				u = last_deltanode & 0xffffffff;					double base = (double)u / 100000.0;
+				u = last_deltanode >> 50;							double ratio = (double)u / 100000.0;
+				dt2 = base + ratio * (mstime - init_ms);			break;
+			}
+			else dt_p2--;
+		}
+		while( dt_p2 < dts2_last ) {
+			uint64_t u;
+
+			uint64_t next_deltanode = dts2 -> Get(dt_p2+1);
+			u = (next_deltanode>>32) & 0x3ffff;						uint32_t next_init_ms = u*2;
+			if( mstime >= next_init_ms ) { dt_p2++; continue; }
+
+			uint64_t current_deltanode = dts2 -> Get(dt_p2);
+			u = (current_deltanode>>32) & 0x3ffff;					uint32_t current_init_ms = u*2;
+			if( mstime < current_init_ms ) { dt_p2--; continue; }
+
+			u = next_deltanode & 0xffffffff;						double next_base = (double)u / 100000.0;
+			u = current_deltanode & 0xffffffff;						double current_base = (double)u / 100000.0;
+			u = current_deltanode >> 50;							double current_ratio = (double)u / 100000.0;
+			if( current_base > next_base ) dt2 = current_base - current_ratio * (mstime - current_init_ms);
+			else dt2 = current_base + current_ratio * (mstime - current_init_ms);
+			break;
+		}
+	}
+
+
+	// Search & Interpolate & Render Wishes
 
 	// Sweep Hints
 
 	// Render Hints & Effects
+
+	// Do Returns
+	DM_LUA_STACK_CHECK(L, 4);
+	lua_pushnumber( L, hint_lost );
+	lua_pushnumber( L, wgo_used );
+	lua_pushnumber( L, hgo_used );
+	lua_pushnumber( L, ago_used );
 	return 4;
 }
 
