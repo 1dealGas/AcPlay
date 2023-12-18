@@ -180,7 +180,7 @@ static inline uint8_t HStatus(uint64_t Hint){
 static Arf2* Arf = nullptr;
 static v3p *T_WPOS = nullptr, *T_HPOS = nullptr, *T_APOS = nullptr;
 static v4p *T_HTINT = nullptr, *T_ALTINT = nullptr, *T_ARTINT = nullptr;
-#define S if(!ArfSize || T_WPOS!=nullptr) return 0;
+#define S if( !ArfSize || T_WPOS==nullptr ) return 0;
 
 // InitArf(str) -> before, total_hints, wgo_required, hgo_required
 // Recommended Usage:
@@ -188,6 +188,8 @@ static v4p *T_HTINT = nullptr, *T_ALTINT = nullptr, *T_ARTINT = nullptr;
 //     collectgarbage()
 static inline int InitArf(lua_State *L)
 {
+	if(ArfSize) return 0;
+
 	// Set Global Variables
 	xscale = 1.0;		yscale = 1.0;	xdelta = 0.0;	ydelta = 0.0;
 	SIN = 0.0f;			COS = 0.0f;		rotsin = 0.0f;	rotcos = 1.0;
@@ -216,7 +218,7 @@ static inline int InitArf(lua_State *L)
 // SetVecs(table_wpos/hpos/apos/htint/altint/artint)
 static inline int SetVecs(lua_State *L)
 {
-	if(!ArfSize) return 0;
+	if( !ArfSize || T_WPOS!=nullptr ) return 0;
 	uint8_t wgo_required = Arf->wgo_required();
 	uint8_t hgo_required = Arf->hgo_required();
 
