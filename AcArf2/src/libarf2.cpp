@@ -180,8 +180,7 @@ static inline uint8_t HStatus(uint64_t Hint){
 static Arf2* Arf = nullptr;
 static v3p *T_WPOS = nullptr, *T_HPOS = nullptr, *T_APOS = nullptr;
 static v4p *T_HTINT = nullptr, *T_ALTINT = nullptr, *T_ARTINT = nullptr;
-#define S if(!ArfSize) return 0;
-#define S2 if(!ArfSize || T_WPOS!=nullptr) return 0;
+#define S if(!ArfSize || T_WPOS!=nullptr) return 0;
 
 // InitArf(str) -> before, total_hints, wgo_required, hgo_required
 // Recommended Usage:
@@ -201,7 +200,7 @@ static inline int InitArf(lua_State *L)
 	// For Defold hasn't exposed something like dmResource::LoadResource(),
 	// there we copy the Lua String returned by sys.load_resource() to acquire the mutable buffer.
 	const char* B = luaL_checklstring(L, 1, &ArfSize);
-	S ArfBuf = (unsigned char*)malloc(ArfSize);
+	if(!ArfSize) return 0;		ArfBuf = (unsigned char*)malloc(ArfSize);
 	memcpy(ArfBuf, B, ArfSize);
 
 	// Do API Stuff
@@ -216,7 +215,8 @@ static inline int InitArf(lua_State *L)
 }
 // SetVecs(table_wpos/hpos/apos/htint/altint/artint)
 static inline int SetVecs(lua_State *L)
-{S2
+{
+	if(!ArfSize) return 0;
 	uint8_t wgo_required = Arf->wgo_required();
 	uint8_t hgo_required = Arf->hgo_required();
 
