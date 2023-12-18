@@ -113,6 +113,12 @@
     parameters:
     - name: rotdeg
       type: number
+  
+  - name: SetDaymode
+    type: function
+    parameters:
+    - name: is_daymode
+      type: boolean
 
   - name: NewTable
     type: function

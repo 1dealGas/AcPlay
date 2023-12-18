@@ -1,6 +1,33 @@
-#define LIB_NAME "libArf2"
-#define MODULE_NAME "Arf2"
+// Hint Color Settings
+#define H_EARLY_R 0.275f
+#define H_EARLY_G 0.495f
+#define H_EARLY_B 0.5603125f
 
+#define H_HIT_C 0.73f
+#define H_HIT_R 0.73f
+#define H_HIT_G 0.6244921875f
+#define H_HIT_B 0.4591015625f
+
+#define H_LATE_R 0.5603125f
+#define H_LATE_G 0.3403125f
+#define H_LATE_B 0.275f
+
+// Effect Color Settings
+#define A_EARLY_R 0.3125f
+#define A_EARLY_G 0.5625f
+#define A_EARLY_B 0.63671875f
+
+#define A_HIT_C 1.0f
+#define A_HIT_R 1.0f
+#define A_HIT_G 0.85546875f
+#define A_HIT_B 0.62890625f
+
+#define A_LATE_R 0.63671875f
+#define A_LATE_G 0.38671875f
+#define A_LATE_B 0.3125f
+
+
+// Includes
 #include <dmsdk/sdk.h>
 #include <dmsdk/dlib/vmath.h>
 #include <dmsdk/script/script.h>
@@ -13,6 +40,7 @@
 static size_t ArfSize = 0;
 static unsigned char* ArfBuf = nullptr;
 static float xscale, yscale, xdelta, ydelta, rotsin, rotcos;
+static bool daymode;
 
 // Internal Globals
 static float SIN, COS;
@@ -231,15 +259,15 @@ static inline int SetVecs(lua_State *L)
 
 	DM_LUA_STACK_CHECK(L, 5);
 	for( uint8_t i=0; i<wgo_required; i++ ) {
-		lua_rawgeti(L, 1, i+1);			T_WPOS[i] = dmScript::CheckVector3(L, 7);
+		lua_rawgeti(L, 1, i+1);		T_WPOS[i] = dmScript::CheckVector3(L, 7);
 		lua_pop(L, 1);
 	}
 	for( uint8_t i=0; i<hgo_required; i++ ) {
-		lua_rawgeti(L, 2, i+1);			T_HPOS[i] = dmScript::CheckVector3(L, 7);
-		lua_rawgeti(L, 3, i+1);			T_APOS[i] = dmScript::CheckVector3(L, 8);
-		lua_rawgeti(L, 4, i+1);			T_HTINT[i] = dmScript::CheckVector4(L, 9);
-		lua_rawgeti(L, 5, i+1);			T_ALTINT[i] = dmScript::CheckVector4(L, 10);
-		lua_rawgeti(L, 6, i+1);			T_ARTINT[i] = dmScript::CheckVector4(L, 11);
+		lua_rawgeti(L, 2, i+1);		T_HPOS[i] = dmScript::CheckVector3(L, 7);
+		lua_rawgeti(L, 3, i+1);		T_APOS[i] = dmScript::CheckVector3(L, 8);
+		lua_rawgeti(L, 4, i+1);		T_HTINT[i] = dmScript::CheckVector4(L, 9);		T_HTINT[i] -> setW(1.0f);
+		lua_rawgeti(L, 5, i+1);		T_ALTINT[i] = dmScript::CheckVector4(L, 10);
+		lua_rawgeti(L, 6, i+1);		T_ARTINT[i] = dmScript::CheckVector4(L, 11);
 		lua_pop(L, 5);
 	}
 
@@ -354,7 +382,8 @@ static inline int UpdateArf(lua_State *L)
 				hint -> Mutate(current_hint_id, current_hint & 0xfffffffffff + 0x100000000000 );
 				ch_status = HINT_SWEEPED;
 			}
-			u = (current_hint<<1) >> 45;			uint32_t pt = mstime - (uint32_t)u;
+			u = (current_hint<<1) >> 45;			int32_t pt = mstime - (int32_t)u;
+													int32_t elt = dt - pt;
 
 			u = current_hint & 0x1fff;				float dx = ( (int16_t)u - 3072 ) * 0.0078125f * xscale;
 			u = (current_hint>>13) & 0xfff;			float dy = ( (int16_t)u - 1536 ) * 0.0078125f * yscale;
@@ -370,8 +399,86 @@ static inline int UpdateArf(lua_State *L)
 			if( dt < -370 ) {
 				float hi_rt = 0.1337f + (float)(0.07 * (510+dt) / 140.0);
 				htint -> setX(hi_rt);	htint -> setY(hi_rt);	htint -> setZ(hi_rt);
-				hpos -> setX(posx);		hpos -> setY(posy);		hpos -> setZ( -(0.05f + pt*0.00001f) );
+				hpos -> setX(posx);		hpos -> setY(posy);		hpos -> setZ( -(0.05f + dt*0.00001f) );
 				hgo_used++;
+			}
+			else if( dt < 370 ) switch(ch_status) {
+				case HINT_NONJUDGED_NONLIT:
+					hpos -> setX(posx);			hpos -> setY(posy);			hpos -> setZ( -0.04f );
+					htint -> setX(0.2037f);		htint -> setY(0.2037f);		htint -> setZ(0.2037f);
+					hgo_used++;		break;
+				case HINT_NONJUDGED_LIT:
+					hpos -> setX(posx);			hpos -> setY(posy);			hpos -> setZ( -0.03f );
+					htint -> setX(0.3737f);		htint -> setY(0.3737f);		htint -> setZ(0.3737f);
+					hgo_used++;		break;
+				case HINT_JUDGED_LIT:   // No "break" here
+					hpos -> setX(posx);			hpos -> setY(posy);			hpos -> setZ( -0.01f );
+					if ( elt>=-37 && elt<=37 ) {
+						if(daymode) {
+							htint -> setX(H_HIT_R);
+							htint -> setY(H_HIT_G);
+							htint -> setZ(H_HIT_B);
+						}
+						else {
+							htint -> setX(H_HIT_C);
+							htint -> setY(H_HIT_C);
+							htint -> setZ(H_HIT_C);
+						}
+					}
+					else {
+						if( elt>37 ) {
+							htint -> setX(H_LATE_R);
+							htint -> setY(H_LATE_G);
+							htint -> setZ(H_LATE_B);
+						}
+						else {
+							htint -> setX(H_EARLY_R);
+							htint -> setY(H_EARLY_G);
+							htint -> setZ(H_EARLY_B);
+						}
+					}
+					hgo_used++;
+				case HINT_JUDGED:
+					if( pt <= 370 ) {
+						apos -> setX(posx);		apos -> setY(posy);		apos -> setZ( -pt*0.00001f );
+						if ( elt>=-37 && elt<=37 ) {
+							if(daymode) {
+								altint -> setX(A_HIT_R);		artint -> setX(A_HIT_R);
+								altint -> setY(A_HIT_G);		artint -> setY(A_HIT_G);
+								altint -> setZ(A_HIT_B);		artint -> setZ(A_HIT_B);
+							}
+							else {
+								altint -> setX(A_HIT_C);		artint -> setX(A_HIT_C);
+								altint -> setY(A_HIT_C);		artint -> setY(A_HIT_C);
+								altint -> setZ(A_HIT_C);		artint -> setZ(A_HIT_C);
+							}
+						}
+						else {
+							if( elt>37 ) {
+								altint -> setX(A_LATE_R);		artint -> setX(A_LATE_R);
+								altint -> setY(A_LATE_G);		artint -> setY(A_LATE_G);
+								altint -> setZ(A_LATE_B);		artint -> setZ(A_LATE_B);
+							}
+							else {
+								altint -> setX(A_EARLY_R);		artint -> setX(A_EARLY_R);
+								altint -> setY(A_EARLY_G);		artint -> setY(A_EARLY_G);
+								altint -> setZ(A_EARLY_B);		artint -> setZ(A_EARLY_B);
+							}
+						}
+						float tintw;
+						ago_used++;
+						lua_pushnumber(L, pt);	lua_rawseti(L, 3, ago_used);	lua_pop(L, 1);
+					}
+					break;
+				default:   // case HINT_SWEEPED:
+					float hl_rt = 0.437f - dt*0.00037f;
+					htint -> setX(hl_rt);	hl_rt *= 0.51f;
+					htint -> setY(hl_rt);	htint -> setZ(hl_rt);
+					hpos -> setX(posx);		hpos -> setY(posy);		hpos -> setZ( -0.02f + dt*0.00001f );
+					hgo_used++;
+			}
+			else {
+
 			}
 		}
 	}
@@ -386,8 +493,10 @@ static inline int UpdateArf(lua_State *L)
 // JudgeArf(mstime, idelta, any_pressed, any_released) -> hint_hit, hint_lost, special_hint_judged
 static inline int JudgeArf(lua_State *L)
 {S
-	double mstime = luaL_checknumber(L, 1);
-	int8_t min_dt = -37 + (int8_t)luaL_checknumber(L, 2);		int8_t max_dt = min_dt + 74;
+	double mstime = luaL_checknumber(L, 1);		int8_t idelta = (int8_t)luaL_checknumber(L, 2);
+	int8_t min_dt = -37 + idelta;				int8_t max_dt = min_dt + 74;
+	
+	uint64_t m_i = (uint64_t)mstime + idelta;
 	bool any_pressed = lua_toboolean(L, 3);
 	if( lua_toboolean(L, 4) ) blnums.clear();   // Discard blocking conditions if any_released.
 	lua_pop(L, 4);
@@ -398,7 +507,6 @@ static inline int JudgeArf(lua_State *L)
 	auto hint = Arf -> mutable_hint();			auto idx_size = Arf -> index() -> size();
 	uint64_t _group = (uint64_t)mstime >> 9;	uint16_t which_group = _group>1 ? _group-1 : 0 ;
 			 _group = which_group + 3;			uint16_t byd1_group = _group<idx_size ? _group : idx_size;
-
 
 	// Start Judging.
 	if(any_pressed){
@@ -436,7 +544,7 @@ static inline int JudgeArf(lua_State *L)
 								else							hint_lost += 1;
 
 								uint64_t original_hint = current_hint & 0xfffffffffff;
-								hint -> Mutate(current_hint_id, ((uint64_t)mstime)<<44 +
+								hint -> Mutate(current_hint_id, (m_i)<<44 +
 								original_hint + 0x8000000000000000 );
 
 								if( current_hint_id == special_hint )
@@ -449,7 +557,7 @@ static inline int JudgeArf(lua_State *L)
 								else							hint_lost += 1;
 
 								uint64_t original_hint = current_hint & 0xfffffffffff;
-								hint -> Mutate(current_hint_id, ((uint64_t)mstime)<<44 +
+								hint -> Mutate(current_hint_id, (m_i)<<44 +
 								original_hint + 0x8000000000000000 );
 
 								if( current_hint_id == special_hint )
@@ -526,6 +634,7 @@ static inline int FinalArf(lua_State *L)
 }
 
 
+static inline int SetDaymode(lua_State *L) { daymode = lua_toboolean(L, 1); return 0; }
 static inline int SetXScale(lua_State *L) { xscale = luaL_checknumber(L, 1); return 0; }
 static inline int SetYScale(lua_State *L) { yscale = luaL_checknumber(L, 1); return 0; }
 static inline int SetXDelta(lua_State *L) { xdelta = luaL_checknumber(L, 1); return 0; }
@@ -549,7 +658,7 @@ static const luaL_reg M[] =
 	{"SetTouches", SetTouches}, {"JudgeArf", JudgeArf},   // {"JudgeArfController", JudgeArfController},
 	{"SetXScale", SetXScale}, {"SetYScale", SetYScale},
 	{"SetXDelta", SetXDelta}, {"SetYDelta", SetYDelta},
-	{"SetRotDeg", SetRotDeg},
+	{"SetRotDeg", SetRotDeg}, {"SetDaymode", SetDaymode},
 	{"NewTable", NewTable},
 	{0, 0}
 };
@@ -559,7 +668,7 @@ static inline dmExtension::Result LuaInit(dmExtension::Params* params)
 	lua_State* L = params->m_L;
 
 	int top = lua_gettop(L);
-	luaL_register(L, MODULE_NAME, M);
+	luaL_register(L, "Arf2", M);
 	lua_pop(L, 1);
 
 	assert(top == lua_gettop(L));
@@ -568,4 +677,4 @@ static inline dmExtension::Result LuaInit(dmExtension::Params* params)
 
 static inline dmExtension::Result OK(dmExtension::Params* params) { return dmExtension::RESULT_OK; }
 static inline dmExtension::Result APPOK(dmExtension::AppParams* params) { return dmExtension::RESULT_OK; }
-DM_DECLARE_EXTENSION(libArf2, LIB_NAME, APPOK, APPOK, LuaInit, 0, 0, OK)
+DM_DECLARE_EXTENSION(libArf2, "libArf2", APPOK, APPOK, LuaInit, 0, 0, OK)
