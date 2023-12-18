@@ -74,6 +74,14 @@ static inline void GetSINCOS(const double degree) {
 static dmVMath::Vector3* T[10];
 typedef dmVMath::Vector3 v3, *v3p;
 typedef dmVMath::Vector4 v4, *v4p;
+
+// Recommended Usage of "SetTouches"
+//     local v3,T = vmath.vector3(), Arf2.NewTable(10,0);    for i=1,10 do T[i]=v3() end
+//     Arf2.SetTouches( T[1], T[2], T[3], T[4], T[5], T[6], T[7], T[8], T[9], T[10] )
+static inline int SetTouches(lua_State *L) {
+	for( uint8_t i=0; i<10; i++)  T[i] = dmScript::CheckVector3(L, i+1);
+	return 0;
+}
 static inline bool has_touch_near(const uint64_t hint) {
 
 	// Hint: (1)TAG+(19)judged_ms+(19)ms+(12)y+(13)x
@@ -170,7 +178,10 @@ static inline uint8_t HStatus(uint64_t Hint){
 /* Script APIs, Under Construction
    S --> Safety guaranteed, by precluding the memory leakage.  */
 static Arf2* Arf = nullptr;
+static v3p *T_WPOS = nullptr, *T_HPOS = nullptr, *T_APOS = nullptr;
+static v4p *T_HTINT = nullptr, *T_ALTINT = nullptr, *T_ARTINT = nullptr;
 #define S if(!ArfSize) return 0;
+#define S2 if(!ArfSize || T_WPOS!=nullptr) return 0;
 
 // InitArf(str) -> before, total_hints, wgo_required, hgo_required
 // Recommended Usage:
@@ -190,7 +201,7 @@ static inline int InitArf(lua_State *L)
 	// For Defold hasn't exposed something like dmResource::LoadResource(),
 	// there we copy the Lua String returned by sys.load_resource() to acquire the mutable buffer.
 	const char* B = luaL_checklstring(L, 1, &ArfSize);
-	S ArfBuf = (unsigned char*) malloc(ArfSize);
+	S ArfBuf = (unsigned char*)malloc(ArfSize);
 	memcpy(ArfBuf, B, ArfSize);
 
 	// Do API Stuff
@@ -203,10 +214,38 @@ static inline int InitArf(lua_State *L)
 	lua_pushnumber( L, Arf->hgo_required() );
 	return 4;
 }
+// SetVecs(table_wpos/hpos/apos/htint/altint/artint)
+static inline int SetVecs(lua_State *L)
+{S2
+	uint8_t wgo_required = Arf->wgo_required();
+	uint8_t hgo_required = Arf->hgo_required();
+
+	T_WPOS = (v3p*)malloc( sizeof(v3p*) * wgo_required );
+	T_HPOS = (v3p*)malloc( sizeof(v3p*) * hgo_required );
+	T_APOS = (v3p*)malloc( sizeof(v3p*) * hgo_required );
+	T_HTINT = (v4p*)malloc( sizeof(v4p*) * hgo_required );
+	T_ALTINT = (v4p*)malloc( sizeof(v4p*) * hgo_required );
+	T_ARTINT = (v4p*)malloc( sizeof(v4p*) * hgo_required );
+
+	DM_LUA_STACK_CHECK(L, 5);
+	for( uint8_t i=0; i<wgo_required; i++ ) {
+		lua_rawgeti(L, 1, i+1);			T_WPOS[i] = dmScript::CheckVector3(L, 7);
+		lua_pop(L, 1);
+	}
+	for( uint8_t i=0; i<hgo_required; i++ ) {
+		lua_rawgeti(L, 2, i+1);			T_HPOS[i] = dmScript::CheckVector3(L, 7);
+		lua_rawgeti(L, 3, i+1);			T_APOS[i] = dmScript::CheckVector3(L, 8);
+		lua_rawgeti(L, 4, i+1);			T_HTINT[i] = dmScript::CheckVector4(L, 9);
+		lua_rawgeti(L, 5, i+1);			T_ALTINT[i] = dmScript::CheckVector4(L, 10);
+		lua_rawgeti(L, 6, i+1);			T_ARTINT[i] = dmScript::CheckVector4(L, 11);
+		lua_pop(L, 5);
+	}
+
+	return 0;
+}
 
 
-// UpdateArf(mstime, table_wpos/wst/hpos/htint/apos/alti/arti/ainfo) -> hint_lost, wgo/hgo/ago_used
-enum { TBL_WPOS=2, TBL_WST, TBL_HPOS, TBL_HTINT, TBL_APOS, TBL_ALTINT, TBL_ARTINT, TBL_AINFO, P=9 };
+// UpdateArf(mstime, table_wst, table_ainfo) -> hint_lost, wgo/hgo/ago_used
 static inline int UpdateArf(lua_State *L)
 {S
 	// Prepare Returns & Process msTime
@@ -321,19 +360,15 @@ static inline int UpdateArf(lua_State *L)
 			float posy = (4.0f + dx*rotsin + dy*rotcos + ydelta) * 112.5f;
 
 			// Prepare Render Elements
-			// Is it possible to make these elems managed by C++ logics?
-			lua_rawgeti(L, TBL_HPOS, hgo_used+1);		v3p hpos = dmScript::CheckVector3(L, P+1);
-			lua_rawgeti(L, TBL_HTINT, hgo_used+1);		v4p htint = dmScript::CheckVector4(L, P+2);
-			lua_rawgeti(L, TBL_APOS, ago_used+1);		v3p apos = dmScript::CheckVector3(L, P+3);
-			lua_rawgeti(L, TBL_ALTINT, ago_used+1);		v4p altint = dmScript::CheckVector4(L, P+4);
-			lua_rawgeti(L, TBL_ARTINT, ago_used+1);		v4p artint = dmScript::CheckVector4(L, P+5);
-			lua_pop(L, 5);
+			v3p hpos = T_HPOS[hgo_used];	v4p htint = T_HTINT[hgo_used];
+			v3p apos = T_APOS[ago_used];	v4p altint = T_ALTINT[ago_used];
+											v4p artint = T_ARTINT[ago_used];
 
 			// Start The Access.
 			if( dt < -370 ) {
-				float hi_rt = 0.1337f + 0.07f * (510+dt) / 140.0f;
-				hpos -> setX(posx);		hpos -> setY(posy);		hpos -> setZ( -(0.05f + pt*0.00001f) );
+				float hi_rt = 0.1337f + (float)(0.07 * (510+dt) / 140.0);
 				htint -> setX(hi_rt);	htint -> setY(hi_rt);	htint -> setZ(hi_rt);
+				hpos -> setX(posx);		hpos -> setY(posy);		hpos -> setZ( -(0.05f + pt*0.00001f) );
 				hgo_used++;
 			}
 		}
@@ -346,13 +381,6 @@ static inline int UpdateArf(lua_State *L)
 }
 
 
-// Recommended Usage:
-//     local v3,T = vmath.vector3(), Arf2.NewTable(10,0);    for i=1,10 do T[i]=v3() end
-//     Arf2.SetTouches( T[1], T[2], T[3], T[4], T[5], T[6], T[7], T[8], T[9], T[10] )
-static inline int SetTouches(lua_State *L) {
-	for( uint8_t i=0; i<10; i++)  T[i] = dmScript::CheckVector3(L, i+1);
-	return 0;
-}
 // JudgeArf(mstime, idelta, any_pressed, any_released) -> hint_hit, hint_lost, special_hint_judged
 static inline int JudgeArf(lua_State *L)
 {S
@@ -485,10 +513,14 @@ static inline int JudgeArf(lua_State *L)
 static inline int FinalArf(lua_State *L)
 {S
 	Arf = nullptr;
-	free(ArfBuf);
-	ArfBuf = nullptr;
-	ArfSize = 0;
-	return 0;
+	free(ArfBuf);		ArfBuf = nullptr;
+	free(T_WPOS);		T_WPOS = nullptr;
+	free(T_HPOS);		T_HPOS = nullptr;
+	free(T_APOS);		T_APOS = nullptr;
+	free(T_HTINT);		T_HTINT = nullptr;
+	free(T_ALTINT);		T_ALTINT = nullptr;
+	free(T_ARTINT); 	T_ARTINT = nullptr;
+	ArfSize = 0;		return 0;
 }
 
 
@@ -511,7 +543,7 @@ static inline int NewTable(lua_State *L) {
 // Defold Binding Related Stuff
 static const luaL_reg M[] =
 {
-	{"InitArf", InitArf}, {"UpdateArf", UpdateArf}, {"FinalArf", FinalArf},
+	{"InitArf", InitArf}, {"SetVecs", SetVecs}, {"UpdateArf", UpdateArf}, {"FinalArf", FinalArf},
 	{"SetTouches", SetTouches}, {"JudgeArf", JudgeArf},   // {"JudgeArfController", JudgeArfController},
 	{"SetXScale", SetXScale}, {"SetYScale", SetYScale},
 	{"SetXDelta", SetXDelta}, {"SetYDelta", SetYDelta},

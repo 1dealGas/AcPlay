@@ -18,27 +18,31 @@
     - name: hgo_required
       type: number
 
+  - name: SetVecs
+    type: function
+    parameters:
+    - name: wish_pos
+      type: table
+    - name: hint_pos
+      type: table
+    - name: anim_pos
+      type: table
+    - name: hint_tint
+      type: table
+    - name: anim_ltint
+      type: table
+    - name: anim_rtint
+      type: table
+
 
   - name: UpdateArf
     type: function
     parameters:
     - name: mstime
       type: number
-    - name: table_w
+    - name: wish_screentime
       type: table
-    - name: table_wi
-      type: table
-    - name: table_h
-      type: table
-    - name: table_hi
-      type: table
-    - name: table_ht
-      type: table
-    - name: table_a
-      type: table
-    - name: table_ai
-      type: table
-    - name: table_at
+    - name: anim_info
       type: table
     returns:
     - name: hint_lost
