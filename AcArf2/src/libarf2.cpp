@@ -26,6 +26,11 @@
 #define A_LATE_G 0.38671875f
 #define A_LATE_B 0.3125f
 
+// Judge Range Setting
+// [0,100)
+#define JUDGE_RANGE 37
+#define JR_REV (100-JUDGE_RANGE)
+
 
 // Includes & Caches
 #include <dmsdk/sdk.h>
@@ -101,6 +106,8 @@ static inline void GetSINCOS(const double degree) {
 static dmVMath::Vector3* T[10];
 typedef dmVMath::Vector3 v3, *v3p;
 typedef dmVMath::Vector4 v4, *v4p;
+enum { HINT_NONJUDGED_NONLIT = 0, HINT_NONJUDGED_LIT,
+       HINT_JUDGED = 10, HINT_JUDGED_LIT, HINT_SWEEPED };
 
 // Recommended Usage of "SetTouches"
 //     local v3,T = vmath.vector3(), Arf2.NewTable(10,0);    for i=1,10 do T[i]=v3() end
@@ -111,8 +118,10 @@ static inline int SetTouches(lua_State *L) {
 }
 static inline int SetIDelta(lua_State *L) {
 	int8_t _id = luaL_checknumber(L, 1);
-	if( _id>-64 && _id<64 ) { idelta = _id;		mindt = -37 + _id;		maxdt = 37 + _id; }
-	else					{ idelta = 0;		mindt = -37;			maxdt = 37; }
+	if( _id>-JR_REV && _id<JR_REV )
+		{ idelta = _id;		mindt = -JUDGE_RANGE + _id;		maxdt = JUDGE_RANGE + _id; }
+	else
+		{ idelta = 0;		mindt = -JUDGE_RANGE;			maxdt = JUDGE_RANGE; }
 	return 0;
 }
 static inline bool has_touch_near(const uint64_t hint) {
@@ -158,7 +167,6 @@ static inline bool has_touch_near(const uint64_t hint) {
 	return false;
 
 }
-
 static inline bool is_safe_to_anmitsu( const uint64_t hint ){
 
 	uint64_t u;					// No overflowing risk here.
@@ -188,9 +196,6 @@ static inline bool is_safe_to_anmitsu( const uint64_t hint ){
 	return true;
 	
 }
-
-enum { HINT_NONJUDGED_NONLIT = 0, HINT_NONJUDGED_LIT,
-       HINT_JUDGED = 10, HINT_JUDGED_LIT, HINT_SWEEPED };
 static inline uint8_t HStatus(uint64_t Hint){
 	Hint >>= 44;
 	bool TAG = (bool)(Hint >> 19);
@@ -358,12 +363,12 @@ static inline int UpdateArf(lua_State *L)
 
 
 	// Search & Interpolate & Render Wishes
-	uint32_t widx_which_group = mstime >> 9;
+	uint32_t widx_group = mstime >> 9;
 
 
-	// Sweep Hints, then Render Hints & Effects
+  { // Sweep Hints, then Render Hints & Effects
 	auto hint = Arf -> mutable_hint();		auto idx_size = Arf -> index() -> size();
-	uint32_t _group = mstime >> 9;			uint16_t which_group = _group>1 ? _group-1 : 0 ;
+	uint32_t _group = widx_group;			uint16_t which_group = _group>1 ? _group-1 : 0 ;
 			 _group = which_group + 3;		uint16_t byd1_group = _group<idx_size ? _group : idx_size;
 
 	for(; which_group<byd1_group; which_group++) {
@@ -465,7 +470,7 @@ static inline int UpdateArf(lua_State *L)
 					atint -> setW( 0.17199f + tintw );
 				}
 				else {
-					float tintw = (pt-73) * 0.003367003367003367f;   // 1/297 = 0.003367······
+					float tintw = (pt-73) * 0.003367003367003367f;   // 1/297 = 0.003367···
 					tintw = 0.637f * tintw * (2.f - tintw);
 					atint -> setW( 0.637f - tintw );
 				}
@@ -477,7 +482,7 @@ static inline int UpdateArf(lua_State *L)
 				lua_pushnumber(L, pt);	lua_rawseti(L, 3, ++ago_used);	lua_pop(L, 1);
 			}
 		}
-	}
+	} }
 
 	// Do Returns. No need to check the capacity of Lua Stack.
 	lua_pushnumber( L, hint_lost );		lua_pushnumber( L, wgo_used );
@@ -624,11 +629,10 @@ static inline int FinalArf(lua_State *L)
 }
 
 
-static inline int SetDaymode(lua_State *L) { daymode = lua_toboolean(L, 1); return 0; }
-static inline int SetXScale(lua_State *L) { xscale = luaL_checknumber(L, 1); return 0; }
-static inline int SetYScale(lua_State *L) { yscale = luaL_checknumber(L, 1); return 0; }
-static inline int SetXDelta(lua_State *L) { xdelta = luaL_checknumber(L, 1); return 0; }
-static inline int SetYDelta(lua_State *L) { ydelta = luaL_checknumber(L, 1); return 0; }
+static inline int SetXS(lua_State *L) { xscale = luaL_checknumber(L, 1); return 0; }
+static inline int SetYS(lua_State *L) { yscale = luaL_checknumber(L, 1); return 0; }
+static inline int SetXD(lua_State *L) { xdelta = luaL_checknumber(L, 1); return 0; }
+static inline int SetYD(lua_State *L) { ydelta = luaL_checknumber(L, 1); return 0; }
 static inline int SetRotDeg(lua_State *L) {
 	GetSINCOS( luaL_checknumber(L, 1) );
 	rotsin = SIN;	rotcos = COS;
@@ -636,19 +640,19 @@ static inline int SetRotDeg(lua_State *L) {
 }
 static inline int NewTable(lua_State *L) {
 	DM_LUA_STACK_CHECK(L, 1);
-	lua_createtable( L, (uint32_t)luaL_checknumber(L,1), (uint32_t)luaL_checknumber(L, 2) );
+	lua_createtable( L, (int)luaL_checknumber(L, 1), (int)luaL_checknumber(L, 2) );
 	return 1;
 }
+static inline int SetDaymode(lua_State *L) { daymode = lua_toboolean(L, 1); return 0; }
 
 
 // Defold Binding Related Stuff
-// Considering a "JudgeArfController" function.
+// Considering Adding a "JudgeArfController" Function.
 static const luaL_reg M[] =
 {
+	{"SetXScale", SetXS}, {"SetYScale", SetYS}, {"SetXDelta", SetXD}, {"SetYDelta", SetYD},
 	{"InitArf", InitArf}, {"SetVecs", SetVecs}, {"UpdateArf", UpdateArf}, {"FinalArf", FinalArf},
 	{"SetTouches", SetTouches}, {"SetIDelta", SetIDelta}, {"JudgeArf", JudgeArf},
-	{"SetXScale", SetXScale}, {"SetYScale", SetYScale},
-	{"SetXDelta", SetXDelta}, {"SetYDelta", SetYDelta},
 	{"SetRotDeg", SetRotDeg}, {"SetDaymode", SetDaymode},
 	{"NewTable", NewTable},
 	{0, 0}
