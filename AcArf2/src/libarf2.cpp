@@ -39,7 +39,6 @@
 #include <arf2_generated.h>
 #include <vector>
 #include <map>
-
 extern const float DSIN[901]; extern const float DCOS[901];
 extern const float ESIN[1001]; extern const float ECOS[1001];
 extern const double RCP[8192];
@@ -358,14 +357,54 @@ static inline int UpdateArf(lua_State *L)
 
 
 	// Search & Interpolate & Render Wishes
-	uint32_t widx_group = mstime >> 9;
-	auto current_wish_ids = Arf -> index() -> Get( widx_group ) -> widx();
-	auto how_many_wishes = current_wish_ids -> size();
+	uint32_t which_widx = mstime >> 9;
+	auto current_wgids = Arf -> index() -> Get( which_widx ) -> widx();
+	auto how_many_wgs = current_wgids -> size();
+
+	auto Wish = Arf -> mutable_wish();
+	for(uint16_t which_wgid=0; which_wgid<how_many_wgs; which_wgid++) {
+		auto current_wgid = current_wgids -> Get(which_wgid);
+		auto current_wishgroup = Wish -> GetMutableObject( current_wgid );
+
+		// I. Info
+		//    current_wishgroup -> mutate_info(new_stuff);
+		uint32_t info = current_wishgroup -> info();
+		float max_visible_distance = (info & 0xffff) / 8192.f;
+		bool of_layer2 = (bool)( (info>>16) & 0b1 );
+
+		// II. Nodes
+		float node_x, node_y; {
+		auto nodes = current_wishgroup -> nodes();
+
+		uint8_t node_progress = (uint8_t)( (info>>17) & 0b11111 );
+		uint8_t nodes_bound = nodes->size() - 1;		if(!nodes_bound) continue;
+		uint32_t ms_of_1st_node = (uint32_t)(nodes->Get(0) & 0x7ffff);
+
+		while( !node_x && node_progress<nodes_bound ) {
+			// 1. Info
+			uint64_t current_node = nodes -> Get(node_progress);
+			uint64_t next_node = nodes -> Get(node_progress+1);
+			uint32_t current_ms = (uint32_t)(current_node & 0x7ffff);
+			uint32_t next_ms = (uint32_t)(next_node & 0x7ffff);
+
+			// 2. Judgement
+			if( mstime < current_ms ) { node_progress--; continue; }
+			else if( mstime >= next_ms ) { node_progress++; continue; }
+
+			// 3. Interpolation
+			// 4. Param Setting
+		} }
+
+		// III. Childs
+		if(node_x) {
+			uint16_t child_progress = (uint16_t)(info >> 22);
+		}
+	}
 
 
   { // Sweep Hints, then Render Hints & Effects
 	auto hint = Arf -> mutable_hint();		auto idx_size = Arf -> index() -> size();
-	uint32_t _group = widx_group;			uint16_t which_group = _group>1 ? _group-1 : 0 ;
+	uint32_t _group = which_widx;			uint16_t which_group = _group>1 ? _group-1 : 0 ;
 			 _group = which_group + 3;		uint16_t byd1_group = _group<idx_size ? _group : idx_size;
 
 	for(; which_group<byd1_group; which_group++) {
