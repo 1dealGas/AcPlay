@@ -444,9 +444,8 @@ static inline int UpdateArf(lua_State *L)
 					break;
 				default:   // case HINT_SWEEPED:
 					float hl_rt = 0.437f - dt*0.00037f;
-					htint -> setX(hl_rt);	hl_rt *= 0.51f;
-					htint -> setY(hl_rt);	htint -> setZ(hl_rt);
-					hpos -> setX(posx);		hpos -> setY(posy);		hpos -> setZ( -0.02f + dt*0.00001f );
+					htint -> setX(hl_rt);		hl_rt *= 0.51f;		htint -> setY(hl_rt).setZ(hl_rt);
+					hpos -> setX(posx).setY(posy).setZ( -0.02f + dt*0.00001f );
 					hgo_used++;
 			}
 			else if(
