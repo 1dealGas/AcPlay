@@ -17,7 +17,6 @@
       type: number
     - name: hgo_required
       type: number
-
   - name: SetVecs
     type: function
     parameters:
@@ -58,13 +57,15 @@
     parameters:
     - name: v3__no1_to_no10
       type: Vector3
-
+  - name: SetIDelta
+    type: function
+    parameters:
+    - name: idelta
+      type: number
   - name: JudgeArf
     type: function
     parameters:
     - name: mstime
-      type: number
-    - name: idelta
       type: number
     - name: any_pressed
       type: boolean

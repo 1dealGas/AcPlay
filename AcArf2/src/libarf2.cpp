@@ -27,13 +27,16 @@
 #define A_LATE_B 0.3125f
 
 
-// Includes
+// Includes & Caches
 #include <dmsdk/sdk.h>
 #include <dmsdk/dlib/vmath.h>
 #include <dmsdk/script/script.h>
 #include <arf2_generated.h>
 #include <vector>
 #include <map>
+extern const float DSIN[901]; extern const float DCOS[901];
+extern const float ESIN[1001]; extern const float ECOS[1001];
+extern const double RCP[8192];
 
 // Data & Globals
 // For Safety Concern, Nothing will happen if !ArfSize.
@@ -44,14 +47,10 @@ static bool daymode;
 
 // Internal Globals
 static float SIN, COS;
+static int8_t mindt, maxdt, idelta;
 static uint16_t special_hint, dt_p1, dt_p2;
 static std::map<uint32_t, uint8_t> last_vec;
 static std::vector<uint32_t> blnums;
-
-// Caches
-extern const float DSIN[901]; extern const float DCOS[901];
-extern const float ESIN[1001]; extern const float ECOS[1001];
-extern const double RCP[8192];
 
 
 // Assistant Ease Functions
@@ -108,6 +107,12 @@ typedef dmVMath::Vector4 v4, *v4p;
 //     Arf2.SetTouches( T[1], T[2], T[3], T[4], T[5], T[6], T[7], T[8], T[9], T[10] )
 static inline int SetTouches(lua_State *L) {
 	for( uint8_t i=0; i<10; i++)  T[i] = dmScript::CheckVector3(L, i+1);
+	return 0;
+}
+static inline int SetIDelta(lua_State *L) {
+	int8_t _id = luaL_checknumber(L, 1);
+	if( _id>-64 && _id<64 ) { idelta = _id;		mindt = -37 + _id;		maxdt = 37 + _id; }
+	else					{ idelta = 0;		mindt = -37;			maxdt = 37; }
 	return 0;
 }
 static inline bool has_touch_near(const uint64_t hint) {
@@ -217,10 +222,11 @@ static v4p *T_HTINT = nullptr, *T_ATINT = nullptr;
 static inline int InitArf(lua_State *L)
 { if(ArfSize) return 0;
 
-	// Set Global Variables
-	xscale = 1.0;		yscale = 1.0;	xdelta = 0.0;	ydelta = 0.0;
-	SIN = 0.0f;			COS = 0.0f;		rotsin = 0.0f;	rotcos = 1.0;
-	special_hint = 0;	dt_p1 = 0;  	dt_p2 = 0;
+	// No need to Reset: SIN,COS,mindt,maxdt,idelta
+	// "special_hint" will be set later
+	xdelta = ydelta = rotsin = 0.0f;
+	xscale = yscale = rotcos = 1.0f;
+	dt_p1 = dt_p2 = daymode = 0;
 
 	// Ensure a clean Initialization
 	last_vec.clear();
@@ -267,7 +273,6 @@ static inline int SetVecs(lua_State *L)
 		lua_rawgeti(L, 5, i+1);		T_ATINT[i] = dmScript::CheckVector4(L, 10);
 		lua_pop(L, 4);
 	}
-
 	return 0;
 }
 
@@ -279,12 +284,12 @@ static inline int UpdateArf(lua_State *L)
 	// Z Distribution: Wish{0,0.05,0.1,0.15}  Hint(-0.06,0)
 	uint8_t wgo_used, hgo_used, ago_used;			uint16_t hint_lost;
 	uint32_t mstime = (uint32_t)luaL_checknumber(L, 1);
-	DM_LUA_STACK_CHECK(L, 5);
+	DM_LUA_STACK_CHECK(L, 4);
 
 	// Check DTime
 	// For Arf2 charts(fumens), init_ms of each layer's 1st DeltaNode must be 0ms.
 	// [) Left Close, Right Open
-	double dt1;
+	double dt1; {
 	auto dts1 = Arf -> dts_layer1();		auto dts1_last = dts1->size() - 1;
 	while(!dt1) {
 		if( dt_p1 >= dts1_last ) {   // "==" is replaced by ">=" to enhance the robustness.
@@ -315,10 +320,10 @@ static inline int UpdateArf(lua_State *L)
 			else dt1 = current_base + current_ratio * (mstime - current_init_ms);
 			break;
 		}
-	}
+	} }
 
 	// Same. It makes no sense to use an array/vector for the stuff fixed to contain 2 elements.
-	double dt2;
+	double dt2; {
 	auto dts2 = Arf -> dts_layer2();		auto dts2_last = dts2->size() - 1;
 	while(!dt2) {
 		if( dt_p2 >= dts2_last ) {
@@ -349,11 +354,11 @@ static inline int UpdateArf(lua_State *L)
 			else dt2 = current_base + current_ratio * (mstime - current_init_ms);
 			break;
 		}
-	}
+	} }
 
 
 	// Search & Interpolate & Render Wishes
-	uint32_t widx_group = mstime >> 9;
+	uint32_t widx_which_group = mstime >> 9;
 
 
 	// Sweep Hints, then Render Hints & Effects
@@ -366,8 +371,8 @@ static inline int UpdateArf(lua_State *L)
 		auto how_many_hints = current_hint_ids->size();
 
 		for(uint16_t i=0; i<how_many_hints; i++) {
-			auto current_hint_id = current_hint_ids->Get(i);
-			auto current_hint = hint->Get( current_hint_id );
+			auto current_hint_id = current_hint_ids -> Get(i);
+			auto current_hint = hint -> Get( current_hint_id );
 
 			uint64_t u;   // Acquire the status of current Hint.
 			u = (current_hint>>25) & 0x7ffff;		int32_t dt = mstime - (int32_t)u;
@@ -380,12 +385,14 @@ static inline int UpdateArf(lua_State *L)
 				ch_status = HINT_SWEEPED;
 			}
 			u = (current_hint<<1) >> 45;			int32_t pt = mstime - (int32_t)u;
-													int32_t elt = dt - pt;
+													int32_t elt = dt - pt - idelta;
 
+			float posx, posy; {
 			u = current_hint & 0x1fff;				float dx = ( (int16_t)u - 3072 ) * 0.0078125f * xscale;
 			u = (current_hint>>13) & 0xfff;			float dy = ( (int16_t)u - 1536 ) * 0.0078125f * yscale;
-			float posx = (8.0f + dx*rotcos - dy*rotsin + xdelta) * 112.5f;
-			float posy = (4.0f + dx*rotsin + dy*rotcos + ydelta) * 112.5f;
+			posx = (8.0f + dx*rotcos - dy*rotsin + xdelta) * 112.5f;
+			posy = (4.0f + dx*rotsin + dy*rotcos + ydelta) * 112.5f;
+			}
 
 			// Prepare Render Elements
 			v3p hpos = T_HPOS[hgo_used];	v4p htint = T_HTINT[hgo_used];
@@ -458,18 +465,15 @@ static inline int UpdateArf(lua_State *L)
 					atint -> setW( 0.17199f + tintw );
 				}
 				else {
-					float tintw = (pt-73) * RCP[296];
+					float tintw = (pt-73) * 0.003367003367003367f;   // 1/297 = 0.003367······
 					tintw = 0.637f * tintw * (2.f - tintw);
 					atint -> setW( 0.637f - tintw );
 				}
-				if ( elt>=-37 && elt<=37 ) {
+				if ( elt<=37 ) {
 					if(daymode) 	atint -> setX(A_HIT_R).setY(A_HIT_G).setZ(A_HIT_B);
 					else 			atint -> setX(A_HIT_C).setY(A_HIT_C).setZ(A_HIT_C);
 				}
-				else {
-					if( elt>37 ) 	atint -> setX(A_LATE_R).setY(A_LATE_G).setZ(A_LATE_B);
-					else 			atint -> setX(A_EARLY_R).setY(A_EARLY_G).setZ(A_EARLY_B);
-				}
+				else 				atint -> setX(A_LATE_R).setY(A_LATE_G).setZ(A_LATE_B);
 				lua_pushnumber(L, pt);	lua_rawseti(L, 3, ++ago_used);	lua_pop(L, 1);
 			}
 		}
@@ -482,16 +486,13 @@ static inline int UpdateArf(lua_State *L)
 }
 
 
-// JudgeArf(mstime, idelta, any_pressed, any_released) -> hint_hit, hint_lost, special_hint_judged
+// JudgeArf(mstime, any_pressed, any_released) -> hint_hit, hint_lost, special_hint_judged
 static inline int JudgeArf(lua_State *L)
 {S
-	double mstime = luaL_checknumber(L, 1);		int8_t idelta = (int8_t)luaL_checknumber(L, 2);
-	int8_t min_dt = -37 + idelta;				int8_t max_dt = min_dt + 74;
-	
-	uint64_t m_i = (uint64_t)mstime + idelta;
-	bool any_pressed = lua_toboolean(L, 3);
-	if( lua_toboolean(L, 4) ) blnums.clear();   // Discard blocking conditions if any_released.
-	lua_pop(L, 4);
+	double mstime = luaL_checknumber(L, 1);
+	bool any_pressed = lua_toboolean(L, 2);
+	if( lua_toboolean(L, 3) ) blnums.clear();   // Discard blocking conditions if any_released.
+	lua_pop(L, 3);
 
 	// Acquired mstime, min/max dt, any pressed from Lua.
 	// Now we prepare returns, and then acquire some stuff from C++ logics.
@@ -532,12 +533,11 @@ static inline int JudgeArf(lua_State *L)
 							if( !min_time ){
 
 								min_time = hint_time;
-								if( dt>=min_dt && dt<=max_dt )	hint_hit += 1;
+								if( dt>=mindt && dt<=maxdt )	hint_hit += 1;
 								else							hint_lost += 1;
 
-								uint64_t original_hint = current_hint & 0xfffffffffff;
-								hint -> Mutate(current_hint_id, (m_i)<<44 +
-								original_hint + 0x8000000000000000 );
+								hint -> Mutate(current_hint_id, (uint64_t)mstime << 44 +
+								current_hint & 0xfffffffffff + 0x8000000000000000 );
 
 								if( current_hint_id == special_hint )
 								special_hint_judged = (bool)special_hint;
@@ -545,12 +545,11 @@ static inline int JudgeArf(lua_State *L)
 							// for other Hint(s) valid and safe_to_anmitsu,
 							else if( hint_time==min_time || checker_true ){
 
-								if( dt>=min_dt && dt<=max_dt )	hint_hit += 1;
+								if( dt>=mindt && dt<=maxdt )	hint_hit += 1;
 								else							hint_lost += 1;
 
-								uint64_t original_hint = current_hint & 0xfffffffffff;
-								hint -> Mutate(current_hint_id, (m_i)<<44 +
-								original_hint + 0x8000000000000000 );
+								hint -> Mutate(current_hint_id, (uint64_t)mstime << 44 +
+								current_hint & 0xfffffffffff + 0x8000000000000000 );
 
 								if( current_hint_id == special_hint )
 								special_hint_judged = (bool)special_hint;
@@ -643,10 +642,11 @@ static inline int NewTable(lua_State *L) {
 
 
 // Defold Binding Related Stuff
+// Considering a "JudgeArfController" function.
 static const luaL_reg M[] =
 {
 	{"InitArf", InitArf}, {"SetVecs", SetVecs}, {"UpdateArf", UpdateArf}, {"FinalArf", FinalArf},
-	{"SetTouches", SetTouches}, {"JudgeArf", JudgeArf},   // {"JudgeArfController", JudgeArfController},
+	{"SetTouches", SetTouches}, {"SetIDelta", SetIDelta}, {"JudgeArf", JudgeArf},
 	{"SetXScale", SetXScale}, {"SetYScale", SetYScale},
 	{"SetXDelta", SetXDelta}, {"SetYDelta", SetYDelta},
 	{"SetRotDeg", SetRotDeg}, {"SetDaymode", SetDaymode},
