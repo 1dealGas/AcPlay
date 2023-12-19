@@ -29,9 +29,7 @@
       type: table
     - name: hint_tint
       type: table
-    - name: anim_ltint
-      type: table
-    - name: anim_rtint
+    - name: anim_tint
       type: table
 
 

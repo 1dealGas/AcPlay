@@ -184,8 +184,8 @@ static inline bool is_safe_to_anmitsu( const uint64_t hint ){
 	
 }
 
-enum { HINT_NONJUDGED_NONLIT = 0, HINT_NONJUDGED_LIT = 1,
-       HINT_JUDGED = 10, HINT_JUDGED_LIT, HINT_SWEEPED    };
+enum { HINT_NONJUDGED_NONLIT = 0, HINT_NONJUDGED_LIT,
+       HINT_JUDGED = 10, HINT_JUDGED_LIT, HINT_SWEEPED };
 static inline uint8_t HStatus(uint64_t Hint){
 	Hint >>= 44;
 	bool TAG = (bool)(Hint >> 19);
@@ -207,7 +207,7 @@ static inline uint8_t HStatus(uint64_t Hint){
    S --> Safety guaranteed, by precluding the memory leakage.  */
 static Arf2* Arf = nullptr;
 static v3p *T_WPOS = nullptr, *T_HPOS = nullptr, *T_APOS = nullptr;
-static v4p *T_HTINT = nullptr, *T_ALTINT = nullptr, *T_ARTINT = nullptr;
+static v4p *T_HTINT = nullptr, *T_ATINT = nullptr;
 #define S if( !ArfSize || T_WPOS==nullptr ) return 0;
 
 // InitArf(str) -> before, total_hints, wgo_required, hgo_required
@@ -215,8 +215,7 @@ static v4p *T_HTINT = nullptr, *T_ALTINT = nullptr, *T_ARTINT = nullptr;
 //     local b,t,w,h = InitArf( sys.load_resource( "Arf/1011.ar" ) )
 //     collectgarbage()
 static inline int InitArf(lua_State *L)
-{
-	if(ArfSize) return 0;
+{ if(ArfSize) return 0;
 
 	// Set Global Variables
 	xscale = 1.0;		yscale = 1.0;	xdelta = 0.0;	ydelta = 0.0;
@@ -243,10 +242,10 @@ static inline int InitArf(lua_State *L)
 	lua_pushnumber( L, Arf->hgo_required() );
 	return 4;
 }
-// SetVecs(table_wpos/hpos/apos/htint/altint/artint)
+// SetVecs(table_wpos/hpos/apos/htint/atint)
 static inline int SetVecs(lua_State *L)
-{
-	if( !ArfSize || T_WPOS!=nullptr ) return 0;
+{ if( !ArfSize || T_WPOS!=nullptr ) return 0;
+
 	uint8_t wgo_required = Arf->wgo_required();
 	uint8_t hgo_required = Arf->hgo_required();
 
@@ -254,8 +253,7 @@ static inline int SetVecs(lua_State *L)
 	T_HPOS = (v3p*)malloc( sizeof(v3p*) * hgo_required );
 	T_APOS = (v3p*)malloc( sizeof(v3p*) * hgo_required );
 	T_HTINT = (v4p*)malloc( sizeof(v4p*) * hgo_required );
-	T_ALTINT = (v4p*)malloc( sizeof(v4p*) * hgo_required );
-	T_ARTINT = (v4p*)malloc( sizeof(v4p*) * hgo_required );
+	T_ATINT = (v4p*)malloc( sizeof(v4p*) * hgo_required );
 
 	DM_LUA_STACK_CHECK(L, 5);
 	for( uint8_t i=0; i<wgo_required; i++ ) {
@@ -266,9 +264,8 @@ static inline int SetVecs(lua_State *L)
 		lua_rawgeti(L, 2, i+1);		T_HPOS[i] = dmScript::CheckVector3(L, 7);
 		lua_rawgeti(L, 3, i+1);		T_APOS[i] = dmScript::CheckVector3(L, 8);
 		lua_rawgeti(L, 4, i+1);		T_HTINT[i] = dmScript::CheckVector4(L, 9);		T_HTINT[i] -> setW(1.0f);
-		lua_rawgeti(L, 5, i+1);		T_ALTINT[i] = dmScript::CheckVector4(L, 10);
-		lua_rawgeti(L, 6, i+1);		T_ARTINT[i] = dmScript::CheckVector4(L, 11);
-		lua_pop(L, 5);
+		lua_rawgeti(L, 5, i+1);		T_ATINT[i] = dmScript::CheckVector4(L, 10);
+		lua_pop(L, 4);
 	}
 
 	return 0;
@@ -392,83 +389,58 @@ static inline int UpdateArf(lua_State *L)
 
 			// Prepare Render Elements
 			v3p hpos = T_HPOS[hgo_used];	v4p htint = T_HTINT[hgo_used];
-			v3p apos = T_APOS[ago_used];	v4p altint = T_ALTINT[ago_used];
-											v4p artint = T_ARTINT[ago_used];
+			v3p apos = T_APOS[ago_used];	v4p atint = T_ATINT[ago_used];
 
 			// Start The Access.
 			if( dt < -370 ) {
 				float hi_rt = 0.1337f + (float)(0.07 * (510+dt) / 140.0);
-				htint -> setX(hi_rt);	htint -> setY(hi_rt);	htint -> setZ(hi_rt);
-				hpos -> setX(posx);		hpos -> setY(posy);		hpos -> setZ( -(0.05f + dt*0.00001f) );
+				htint -> setX(hi_rt).setY(hi_rt).setZ(hi_rt);   // Elegant?
+				hpos -> setX(posx).setY(posy).setZ( -(0.05f + dt*0.00001f) );
 				hgo_used++;
 			}
 			else if( dt < 370 ) switch(ch_status) {
 				case HINT_NONJUDGED_NONLIT:
-					hpos -> setX(posx);			hpos -> setY(posy);			hpos -> setZ( -0.04f );
-					htint -> setX(0.2037f);		htint -> setY(0.2037f);		htint -> setZ(0.2037f);
+					hpos -> setX(posx).setY(posy).setZ( -0.04f );
+					htint -> setX(0.2037f).setY(0.2037f).setZ(0.2037f);
 					hgo_used++;		break;
 				case HINT_NONJUDGED_LIT:
-					hpos -> setX(posx);			hpos -> setY(posy);			hpos -> setZ( -0.03f );
-					htint -> setX(0.3737f);		htint -> setY(0.3737f);		htint -> setZ(0.3737f);
+					hpos -> setX(posx).setY(posy).setZ( -0.03f );
+					htint -> setX(0.3737f).setY(0.3737f).setZ(0.3737f);
 					hgo_used++;		break;
 				case HINT_JUDGED_LIT:   // No "break" here
-					hpos -> setX(posx);			hpos -> setY(posy);			hpos -> setZ( -0.01f );
+					hpos -> setX(posx).setY(posy).setZ( -0.01f );
 					if ( elt>=-37 && elt<=37 ) {
-						if(daymode) {
-							htint -> setX(H_HIT_R);
-							htint -> setY(H_HIT_G);
-							htint -> setZ(H_HIT_B);
-						}
-						else {
-							htint -> setX(H_HIT_C);
-							htint -> setY(H_HIT_C);
-							htint -> setZ(H_HIT_C);
-						}
+						if(daymode)		htint -> setX(H_HIT_R).setY(H_HIT_G).setZ(H_HIT_B);
+						else 			htint -> setX(H_HIT_C).setY(H_HIT_C).setZ(H_HIT_C);
 					}
 					else {
-						if( elt>37 ) {
-							htint -> setX(H_LATE_R);
-							htint -> setY(H_LATE_G);
-							htint -> setZ(H_LATE_B);
-						}
-						else {
-							htint -> setX(H_EARLY_R);
-							htint -> setY(H_EARLY_G);
-							htint -> setZ(H_EARLY_B);
-						}
+						if( elt>37 ) 	htint -> setX(H_LATE_R).setY(H_LATE_G).setZ(H_LATE_B);
+						else 			htint -> setX(H_EARLY_R).setY(H_EARLY_G).setZ(H_EARLY_B);
 					}
 					hgo_used++;
 				case HINT_JUDGED:
 					if( pt <= 370 ) {
-						apos -> setX(posx);		apos -> setY(posy);		apos -> setZ( -pt*0.00001f );
-						if ( elt>=-37 && elt<=37 ) {
-							if(daymode) {
-								altint -> setX(A_HIT_R);		artint -> setX(A_HIT_R);
-								altint -> setY(A_HIT_G);		artint -> setY(A_HIT_G);
-								altint -> setZ(A_HIT_B);		artint -> setZ(A_HIT_B);
-							}
-							else {
-								altint -> setX(A_HIT_C);		artint -> setX(A_HIT_C);
-								altint -> setY(A_HIT_C);		artint -> setY(A_HIT_C);
-								altint -> setZ(A_HIT_C);		artint -> setZ(A_HIT_C);
-							}
+						apos -> setX(posx).setY(posy).setZ( -pt*0.00001f );
+						if( pt<73 ) {
+							float tintw = pt * 0.01f;
+							tintw = 0.637f * tintw * (2.f - tintw);
+							atint -> setW( 0.17199f + tintw );
 						}
 						else {
-							if( elt>37 ) {
-								altint -> setX(A_LATE_R);		artint -> setX(A_LATE_R);
-								altint -> setY(A_LATE_G);		artint -> setY(A_LATE_G);
-								altint -> setZ(A_LATE_B);		artint -> setZ(A_LATE_B);
-							}
-							else {
-								altint -> setX(A_EARLY_R);		artint -> setX(A_EARLY_R);
-								altint -> setY(A_EARLY_G);		artint -> setY(A_EARLY_G);
-								altint -> setZ(A_EARLY_B);		artint -> setZ(A_EARLY_B);
-							}
+							float tintw = (pt-73) * RCP[296];   // "/297.0f"
+							tintw = 0.637f * tintw * (2.f - tintw);
+							atint -> setW( 0.637f - tintw );
 						}
-						float tintw;
-						ago_used++;
-						lua_pushnumber(L, pt);	lua_rawseti(L, 3, ago_used);	lua_pop(L, 1);
-					}
+						if ( elt>=-37 && elt<=37 ) {
+							if(daymode) 	atint -> setX(A_HIT_R).setY(A_HIT_G).setZ(A_HIT_B);
+							else 			atint -> setX(A_HIT_C).setY(A_HIT_C).setZ(A_HIT_C);
+						}
+						else {
+							if( elt>37 ) 	atint -> setX(A_LATE_R).setY(A_LATE_G).setZ(A_LATE_B);
+							else 			atint -> setX(A_EARLY_R).setY(A_EARLY_G).setZ(A_EARLY_B);
+						}
+						lua_pushnumber(L, pt);	lua_rawseti(L, 3, ++ago_used);	lua_pop(L, 1);
+					}							// Sh*t from C++
 					break;
 				default:   // case HINT_SWEEPED:
 					float hl_rt = 0.437f - dt*0.00037f;
@@ -477,8 +449,29 @@ static inline int UpdateArf(lua_State *L)
 					hpos -> setX(posx);		hpos -> setY(posy);		hpos -> setZ( -0.02f + dt*0.00001f );
 					hgo_used++;
 			}
-			else {
-
+			else if(
+				(ch_status==HINT_JUDGED || ch_status==HINT_JUDGED_LIT) && ( pt<=370 )
+			) {
+				apos -> setX(posx).setY(posy).setZ( -pt*0.00001f );
+				if( pt<73 ) {
+					float tintw = pt * 0.01f;
+					tintw = 0.637f * tintw * (2.f - tintw);
+					atint -> setW( 0.17199f + tintw );
+				}
+				else {
+					float tintw = (pt-73) * RCP[296];
+					tintw = 0.637f * tintw * (2.f - tintw);
+					atint -> setW( 0.637f - tintw );
+				}
+				if ( elt>=-37 && elt<=37 ) {
+					if(daymode) 	atint -> setX(A_HIT_R).setY(A_HIT_G).setZ(A_HIT_B);
+					else 			atint -> setX(A_HIT_C).setY(A_HIT_C).setZ(A_HIT_C);
+				}
+				else {
+					if( elt>37 ) 	atint -> setX(A_LATE_R).setY(A_LATE_G).setZ(A_LATE_B);
+					else 			atint -> setX(A_EARLY_R).setY(A_EARLY_G).setZ(A_EARLY_B);
+				}
+				lua_pushnumber(L, pt);	lua_rawseti(L, 3, ++ago_used);	lua_pop(L, 1);
 			}
 		}
 	}
@@ -628,8 +621,7 @@ static inline int FinalArf(lua_State *L)
 	free(T_HPOS);		T_HPOS = nullptr;
 	free(T_APOS);		T_APOS = nullptr;
 	free(T_HTINT);		T_HTINT = nullptr;
-	free(T_ALTINT);		T_ALTINT = nullptr;
-	free(T_ARTINT); 	T_ARTINT = nullptr;
+	free(T_ATINT);		T_ATINT = nullptr;
 	ArfSize = 0;		return 0;
 }
 
