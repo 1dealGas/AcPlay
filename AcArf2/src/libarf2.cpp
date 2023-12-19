@@ -29,7 +29,7 @@
 // Judge Range Setting
 // [0,100)
 #define JUDGE_RANGE 37
-#define JR_REV (100-JUDGE_RANGE)
+#define JR_REV 63
 
 
 // Includes & Caches
@@ -39,6 +39,7 @@
 #include <arf2_generated.h>
 #include <vector>
 #include <map>
+
 extern const float DSIN[901]; extern const float DCOS[901];
 extern const float ESIN[1001]; extern const float ECOS[1001];
 extern const double RCP[8192];
@@ -52,26 +53,20 @@ static bool daymode;
 
 // Internal Globals
 static float SIN, COS;
-static int8_t mindt, maxdt, idelta;
 static uint16_t special_hint, dt_p1, dt_p2;
+static int8_t mindt = -37, maxdt = 37, idelta = 0;
 static std::map<uint32_t, uint8_t> last_vec;
 static std::vector<uint32_t> blnums;
 
 
 // Assistant Ease Functions
 static inline float Quad(float ratio, const int16_t sgn) {
-	if( sgn < 0 ) {
-		ratio = 1.0f - ratio;
-		return ( 1.0f - ratio*ratio );
-	}
+	if( sgn < 0 ) { ratio = 1.0f - ratio;	return ( 1.0f - ratio*ratio ); }
 	else return ratio*ratio ;
 }
 static inline uint16_t mod_degree( uint64_t deg ) {
 	do {
-		if(deg > 7200) {
-			if(deg > 14400) deg-=14400;
-			else deg-=7200;
-		}
+		if(deg > 7200) { if(deg > 14400) deg-=14400;	else deg-=7200; }
 		else deg-=3600;
 	}	while(deg > 3600);
 	return deg;
@@ -118,7 +113,7 @@ static inline int SetTouches(lua_State *L) {
 }
 static inline int SetIDelta(lua_State *L) {
 	int8_t _id = luaL_checknumber(L, 1);
-	if( _id>-JR_REV && _id<JR_REV )
+	if( _id>=-JR_REV && _id<=JR_REV )
 		{ idelta = _id;		mindt = -JUDGE_RANGE + _id;		maxdt = JUDGE_RANGE + _id; }
 	else
 		{ idelta = 0;		mindt = -JUDGE_RANGE;			maxdt = JUDGE_RANGE; }
@@ -238,7 +233,7 @@ static inline int InitArf(lua_State *L)
 	blnums.clear();
 
 	// For Defold hasn't exposed something like dmResource::LoadResource(),
-	// there we copy the Lua String returned by sys.load_resource() to acquire the mutable buffer.
+	// there we copy the Lua String returned by sys.load_resource() to acquire a mutable buffer.
 	const char* B = luaL_checklstring(L, 1, &ArfSize);
 	if(!ArfSize) return 0;		ArfBuf = (unsigned char*)malloc(ArfSize);
 	memcpy(ArfBuf, B, ArfSize);
@@ -364,6 +359,8 @@ static inline int UpdateArf(lua_State *L)
 
 	// Search & Interpolate & Render Wishes
 	uint32_t widx_group = mstime >> 9;
+	auto current_wish_ids = Arf -> index() -> Get( widx_group ) -> widx();
+	auto how_many_wishes = current_wish_ids -> size();
 
 
   { // Sweep Hints, then Render Hints & Effects
