@@ -37,8 +37,8 @@
 #include <dmsdk/dlib/vmath.h>
 #include <dmsdk/script/script.h>
 #include <arf2_generated.h>
+#include <unordered_map>
 #include <vector>
-#include <map>
 extern const float DSIN[901]; extern const float DCOS[901];
 extern const float ESIN[1001]; extern const float ECOS[1001];
 extern const double RCP[8192];
@@ -54,7 +54,7 @@ static bool daymode;
 static float SIN, COS;
 static uint16_t special_hint, dt_p1, dt_p2;
 static int8_t mindt = -37, maxdt = 37, idelta = 0;
-static std::map<uint32_t, uint8_t> last_vec;
+static std::unordered_map<uint32_t,uint8_t> last_vec;
 static std::vector<uint32_t> blnums;
 
 
@@ -362,7 +362,7 @@ static inline int UpdateArf(lua_State *L)
 	auto how_many_wgs = current_wgids -> size();
 
 	auto Wish = Arf -> mutable_wish();
-	for(uint16_t which_wgid=0; which_wgid<how_many_wgs; which_wgid++) {
+	for(uint8_t which_wgid=0; which_wgid<how_many_wgs; which_wgid++) {
 		auto current_wgid = current_wgids -> Get(which_wgid);
 		auto current_wishgroup = Wish -> GetMutableObject( current_wgid );
 
@@ -373,32 +373,92 @@ static inline int UpdateArf(lua_State *L)
 		bool of_layer2 = (bool)( (info>>16) & 0b1 );
 
 		// II. Nodes
-		float node_x, node_y; {
+		uint8_t node_progress = (uint8_t)( (info>>17) & 0b11111 );
+		bool node_found; float node_x, node_y; {
 		auto nodes = current_wishgroup -> nodes();
 
-		uint8_t node_progress = (uint8_t)( (info>>17) & 0b11111 );
+		uint32_t current_ms;
 		uint8_t nodes_bound = nodes->size() - 1;		if(!nodes_bound) continue;
-		uint32_t ms_of_1st_node = (uint32_t)(nodes->Get(0) & 0x7ffff);
-
-		while( !node_x && node_progress<nodes_bound ) {
-			// 1. Info
+		while( !node_found && node_progress<nodes_bound ) {
+			// 1. Info & Judgement
 			uint64_t current_node = nodes -> Get(node_progress);
 			uint64_t next_node = nodes -> Get(node_progress+1);
-			uint32_t current_ms = (uint32_t)(current_node & 0x7ffff);
+			
+					 current_ms = (uint32_t)(current_node & 0x7ffff);
 			uint32_t next_ms = (uint32_t)(next_node & 0x7ffff);
 
-			// 2. Judgement
 			if( mstime < current_ms ) { node_progress--; continue; }
 			else if( mstime >= next_ms ) { node_progress++; continue; }
+			node_found = true;
 
-			// 3. Interpolation
+			// 2. Interpolation
+			float node_ratio; {
+				uint32_t difms = next_ms - current_ms;
+				if(difms<8193)	node_ratio = (mstime-current_ms) * RCP[ difms-1 ];
+				else			node_ratio = (mstime-current_ms) / (float)difms;
+			} {
+
+			float x1 = ( (current_node>>31)&0x1fff - 2048 ) * 0.0078125f;
+			float y1 = ( (current_node>>19)&0xfff - 1024 ) * 0.0078125f;
+			float dx = ( (next_node>>31)&0x1fff - 2048 ) * 0.0078125f - x1;
+			float dy = ( (next_node>>19)&0xfff - 1024 ) * 0.0078125f - y1;
+
+			uint8_t et = (uint8_t)( (current_node>>44) & 0b11 );
+			if(et) {
+				float curve_init = (current_node>>55) * 0.001953125f;
+				float curve_end = ( (current_node>>46) & 0x1ff ) * 0.001953125f;
+				switch(et) {
+					case 1:
+						uint16_t curve_ratio = (uint16_t)
+											   ( 1000 * ( curve_init + (curve_end-curve_init) * node_ratio ) );
+						node_x = x1 + dx * ESIN[curve_ratio];
+						node_y = y1 + dy * ECOS[curve_ratio];
+						break;
+					case 2:
+						uint16_t curve_ratio = (uint16_t)
+											   ( 1000 * ( curve_init + (curve_end-curve_init) * node_ratio ) );
+						node_x = x1 + dx * ECOS[curve_ratio];
+						node_y = y1 + dy * ESIN[curve_ratio];
+						break;
+					default:   // case 3
+						float ease_ratio; {
+							if(curve_init>curve_end) {
+								ease_ratio = curve_init + (curve_init - curve_end) * node_ratio;
+								ease_ratio = 1.0f - ease_ratio;
+								ease_ratio = 1.0f - ease_ratio * ease_ratio;
+							}
+							else {
+								ease_ratio = curve_init + (curve_end - curve_init) * node_ratio;
+								ease_ratio *= ease_ratio;
+							}
+						}
+						node_x = x1 + dx * ease_ratio;
+						node_y = y1 + dy * ease_ratio;
+				}
+			}
+			else {  node_x = x1 + dx * node_ratio;
+					node_y = y1 + dy * node_ratio;  }
+
+		  } // 3. Overlap Detection
 			// 4. Param Setting
+			float wst_ratio; {
+				uint32_t dms_from_1st_node; {
+					if(node_progress)	dms_from_1st_node = mstime - (uint32_t)(nodes->Get(0) & 0x7ffff);
+					else				dms_from_1st_node = mstime - current_ms;
+				}
+				if( dms_from_1st_node > 370 )	wst_ratio = 1.0f;
+				else							wst_ratio = dms_from_1st_node / 370.0f;
+			}
+			///
 		} }
 
 		// III. Childs
-		if(node_x) {
-			uint16_t child_progress = (uint16_t)(info >> 22);
+		uint16_t child_progress = (uint16_t)(info >> 22);
+		if(node_found) {
 		}
+
+		// L. Mutate Info
+		current_wishgroup -> mutate_info( (info&0x1ffff) + (node_progress<<17) + (child_progress<<22) );
 	}
 
 
@@ -411,7 +471,7 @@ static inline int UpdateArf(lua_State *L)
 		auto current_hint_ids = Arf -> index() -> Get( which_group ) -> hidx();
 		auto how_many_hints = current_hint_ids->size();
 
-		for(uint16_t i=0; i<how_many_hints; i++) {
+		for(uint8_t i=0; i<how_many_hints; i++) {
 			auto current_hint_id = current_hint_ids -> Get(i);
 			auto current_hint = hint -> Get( current_hint_id );
 
