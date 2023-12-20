@@ -54,7 +54,7 @@ static bool daymode;
 static float SIN, COS;
 static uint16_t special_hint, dt_p1, dt_p2;
 static int8_t mindt = -37, maxdt = 37, idelta = 0;
-static std::unordered_map<uint32_t,uint8_t> last_vec;
+static std::unordered_map<uint32_t,uint8_t> last_wgo;
 static std::vector<uint32_t> blnums;
 
 
@@ -124,16 +124,19 @@ static inline bool has_touch_near(const uint64_t hint) {
 	// x:[0,48]   visible -> [16,32]
 	// y:[0,24]   visible -> [8,16]
 
-	uint64_t u;
-	u = hint & 0x1fff;			float dx = ( (int16_t)u - 3072 ) * 0.0078125f * xscale;
-	u = (hint>>13) & 0xfff;		float dy = ( (int16_t)u - 1536 ) * 0.0078125f * yscale;
+	float hint_l, hint_r, hint_d, hint_u;
+	{
+		uint64_t u;
+		u = hint & 0x1fff;			float dx = ( (int16_t)u - 3072 ) * 0.0078125f * xscale;
+		u = (hint>>13) & 0xfff;		float dy = ( (int16_t)u - 1536 ) * 0.0078125f * yscale;
 
-	// Camera transformation integrated.
-	float hint_l = 8.0f + dx*rotcos - dy*rotsin + xdelta;
-	float hint_d = 4.0f + dx*rotsin + dy*rotcos + ydelta;
+		// Camera transformation integrated.
+		hint_l = 8.0f + dx*rotcos - dy*rotsin + xdelta;
+		hint_d = 4.0f + dx*rotsin + dy*rotcos + ydelta;
 
-	hint_l = hint_l * 112.5f - 168.75f;		float hint_r = hint_l + 337.5f;
-	hint_d = hint_d * 112.5f - 78.75f;		float hint_u = hint_d + 337.5f;
+		hint_l = hint_l * 112.5f - 168.75f;		hint_r = hint_l + 337.5f;
+		hint_d = hint_d * 112.5f - 78.75f;		hint_u = hint_d + 337.5f;
+	}
 
 	// For each finger,
 	for( uint8_t i=0; i<10; i++ ){
@@ -169,11 +172,11 @@ static inline bool is_safe_to_anmitsu( const uint64_t hint ){
 
 	// Safe when blnums.size==0. The circulation is to be skipped then.
 	// For registered Hints,
-	uint32_t blnum;				uint16_t bs = blnums.size();
+	uint16_t bs = blnums.size();
 	for( uint16_t i=0; i<bs; i++ ){
 
 		// check its x pivot,
-		blnum = blnums[i];		u = blnum & 0x1fff;
+		uint32_t blnum = blnums[i];		u = blnum & 0x1fff;
 		if( (u>hint_l) && u<hint_r ){
 
 			// if problem happens with the x pivot,
@@ -228,7 +231,7 @@ static inline int InitArf(lua_State *L)
 	dt_p1 = dt_p2 = daymode = 0;
 
 	// Ensure a clean Initialization
-	last_vec.clear();
+	last_wgo.clear();
 	blnums.clear();
 
 	// For Defold hasn't exposed something like dmResource::LoadResource(),
@@ -374,8 +377,8 @@ static inline int UpdateArf(lua_State *L)
 
 		// II. Nodes
 		uint8_t node_progress = (uint8_t)( (info>>17) & 0b11111 );
-		bool node_found; float node_x, node_y; {
-		auto nodes = current_wishgroup -> nodes();
+		bool node_found; 	float node_x, node_y;
+	{	auto nodes = current_wishgroup -> nodes();
 
 		uint32_t current_ms;
 		uint8_t nodes_bound = nodes->size() - 1;		if(!nodes_bound) continue;
@@ -392,13 +395,15 @@ static inline int UpdateArf(lua_State *L)
 			node_found = true;
 
 			// 2. Interpolation
-			float node_ratio; {
+			float node_ratio;
+			{
 				uint32_t difms = next_ms - current_ms;
-				if(difms<8193)	node_ratio = (mstime-current_ms) * RCP[ difms-1 ];
-				else			node_ratio = (mstime-current_ms) / (float)difms;
-			} {
+				if(!difms)				node_ratio = 0.0f;
+				else if(difms<8193)		node_ratio = (mstime-current_ms) * RCP[ difms-1 ];
+				else					node_ratio = (mstime-current_ms) / (float)difms;
+			}
 
-			float x1 = ( (current_node>>31)&0x1fff - 2048 ) * 0.0078125f;
+		{	float x1 = ( (current_node>>31)&0x1fff - 2048 ) * 0.0078125f;
 			float y1 = ( (current_node>>19)&0xfff - 1024 ) * 0.0078125f;
 			float dx = ( (next_node>>31)&0x1fff - 2048 ) * 0.0078125f - x1;
 			float dy = ( (next_node>>19)&0xfff - 1024 ) * 0.0078125f - y1;
@@ -438,19 +443,33 @@ static inline int UpdateArf(lua_State *L)
 			}
 			else {  node_x = x1 + dx * node_ratio;
 					node_y = y1 + dy * node_ratio;  }
+		}
+		{	// 3. Camera Transformation & Overlap Detection & Param Setting
+			float pdx = (node_x - 8.0f) * xscale,	pdy = (node_y - 4.0f) * yscale;
+			float px = 112.5f * ( 8.0f + pdx*rotcos - pdy*rotsin + xdelta ),
+				  py = 112.5f * ( 4.0f + pdx*rotsin + pdy*rotcos + ydelta ) + 90.0f;
+			uint32_t poskey = (uint32_t)(px * 1009.0f) + (uint32_t)(py * 1013.0f);
 
-		  } // 3. Overlap Detection
-			// 4. Param Setting
-			float wst_ratio; {
-				uint32_t dms_from_1st_node; {
-					if(node_progress)	dms_from_1st_node = mstime - (uint32_t)(nodes->Get(0) & 0x7ffff);
-					else				dms_from_1st_node = mstime - current_ms;
-				}
-				if( dms_from_1st_node > 370 )	wst_ratio = 1.0f;
-				else							wst_ratio = dms_from_1st_node / 370.0f;
+			if( last_wgo.count(poskey) ) {   // Overlapped
+				lua_pushnumber(L, 1.0);
+				lua_rawseti(L, 2, last_wgo[poskey]+1);
 			}
-			///
-		} }
+			else {
+				last_wgo[poskey] = wgo_used;
+				T_WPOS[wgo_used] -> setX(px).setY(py).setZ( of_layer2 ? 0.1f : 0.0f );
+				float wst_ratio;
+				{
+					uint32_t dms_from_1st_node; {
+						if(node_progress)	dms_from_1st_node = mstime - (uint32_t)(nodes->Get(0) & 0x7ffff);
+						else				dms_from_1st_node = mstime - current_ms;
+					}
+					if( dms_from_1st_node > 370 )	wst_ratio = 1.0f;
+					else							wst_ratio = dms_from_1st_node / 370.0f;
+				}
+				lua_pushnumber(L, wst_ratio);		lua_rawseti(L, 2, ++wgo_used);
+			}
+		}
+	}}
 
 		// III. Childs
 		uint16_t child_progress = (uint16_t)(info >> 22);
@@ -578,11 +597,13 @@ static inline int UpdateArf(lua_State *L)
 				lua_pushnumber(L, pt);	lua_rawseti(L, 3, ++ago_used);	lua_pop(L, 1);
 			}
 		}
-	} }
+	}
+  }
 
 	// Do Returns. No need to check the capacity of Lua Stack.
 	lua_pushnumber( L, hint_lost );		lua_pushnumber( L, wgo_used );
 	lua_pushnumber( L, hgo_used );		lua_pushnumber( L, ago_used );
+	last_wgo.clear();   // Cleanup
 	return 4;
 }
 
