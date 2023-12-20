@@ -369,26 +369,29 @@ static inline int UpdateArf(lua_State *L)
 		auto current_wgid = current_wgids -> Get(which_wgid);
 		auto current_wishgroup = Wish -> GetMutableObject( current_wgid );
 
-		// I. Info
+		// A. Info
 		//    current_wishgroup -> mutate_info(new_stuff);
 		uint32_t info = current_wishgroup -> info();
-		float max_visible_distance = (info & 0xffff) / 8192.f;
 		bool of_layer2 = (bool)( (info>>16) & 0b1 );
 
-		// II. Nodes
 		uint8_t node_progress = (uint8_t)( (info>>17) & 0b11111 );
+		uint16_t child_progress = (uint16_t)(info >> 22);
+
+		// B. Nodes
 		bool node_found; 	float node_x, node_y;
 	{	auto nodes = current_wishgroup -> nodes();
 
 		uint32_t current_ms;
-		uint8_t nodes_bound = nodes->size() - 1;		if(!nodes_bound) continue;
+		uint8_t nodes_bound = nodes->size() - 1;
+		if(!nodes_bound)							continue;
+		else if( node_progress >= nodes_bound )		node_progress = nodes_bound - 1;
 		while( !node_found && node_progress<nodes_bound ) {
 			// 1. Info & Judgement
-			uint64_t current_node = nodes -> Get(node_progress);
 			uint64_t next_node = nodes -> Get(node_progress+1);
+			uint64_t current_node = nodes -> Get(node_progress);
 			
-					 current_ms = (uint32_t)(current_node & 0x7ffff);
 			uint32_t next_ms = (uint32_t)(next_node & 0x7ffff);
+					 current_ms = (uint32_t)(current_node & 0x7ffff);
 
 			if( mstime < current_ms ) { node_progress--; continue; }
 			else if( mstime >= next_ms ) { node_progress++; continue; }
@@ -444,12 +447,15 @@ static inline int UpdateArf(lua_State *L)
 			else {  node_x = x1 + dx * node_ratio;
 					node_y = y1 + dy * node_ratio;  }
 		}
-		{	// 3. Camera Transformation & Overlap Detection & Param Setting
-			float pdx = (node_x - 8.0f) * xscale,	pdy = (node_y - 4.0f) * yscale;
-			float px = 112.5f * ( 8.0f + pdx*rotcos - pdy*rotsin + xdelta ),
-				  py = 112.5f * ( 4.0f + pdx*rotsin + pdy*rotcos + ydelta ) + 90.0f;
-			uint32_t poskey = (uint32_t)(px * 1009.0f) + (uint32_t)(py * 1013.0f);
+		{	// 3. Param Setting
+			float px,py;
+			{
+				float pdx = (node_x - 8.0f) * xscale,	pdy = (node_y - 4.0f) * yscale;
+				px = 112.5f * ( 8.0f + pdx*rotcos - pdy*rotsin + xdelta );
+				py = 112.5f * ( 4.0f + pdx*rotsin + pdy*rotcos + ydelta ) + 90.0f;
+			}
 
+			uint32_t poskey = (uint32_t)(px * 1009.0f) + (uint32_t)(py * 1013.0f);
 			if( last_wgo.count(poskey) ) {   // Overlapped
 				lua_pushnumber(L, 1.0);
 				lua_rawseti(L, 2, last_wgo[poskey]+1);
@@ -471,13 +477,73 @@ static inline int UpdateArf(lua_State *L)
 		}
 	}}
 
-		// III. Childs
-		uint16_t child_progress = (uint16_t)(info >> 22);
+		// C. Childs
 		if(node_found) {
-		}
+			auto childs = current_wishgroup -> mutable_childs();
+			uint16_t how_many_childs = childs -> size();
 
-		// L. Mutate Info
-		current_wishgroup -> mutate_info( (info&0x1ffff) + (node_progress<<17) + (child_progress<<22) );
+			if(how_many_childs) {
+				float current_dt = of_layer2 ? dt2 : dt1 ;
+			
+				// Verify Child Progress I
+				bool has_child_to_search = true;
+				if( (child_progress+1) >= how_many_childs ) {
+					uint32_t last_dt = childs -> Get( how_many_childs-1 ) -> dt();
+					if(last_dt <= current_dt)	has_child_to_search = false;
+					else						child_progress = how_many_childs - 1;
+				}
+
+				// Search Childs
+				if(has_child_to_search) {
+					float max_visible_distance = (info & 0xffff) / 8192.f;
+					while(child_progress < how_many_childs) {
+
+						// Verify Child Progress II
+						if( child_progress && childs->Get( child_progress-1 )->dt() > current_dt )
+							{ child_progress--; continue; }
+						else if( childs->Get( child_progress )->dt() <= current_dt )
+							{ child_progress++; continue; }
+						for( uint16_t i=child_progress; i<how_many_childs; i++) {
+
+							// Get Radius
+							auto current_child = childs -> GetMutableObject(i);
+							float radius = current_child->dt() - current_dt;
+							if( radius > max_visible_distance ) break;
+
+							// Get Angle
+							{
+								double current_degree;
+								// ···
+								GetSINCOS(current_degree);
+							}
+
+							// Param Setting
+							float px,py;
+							{
+								float pdx = (node_x + radius*COS - 8.0f) * xscale;
+								float pdy = (node_y + radius*SIN - 4.0f) * yscale;
+								px = 112.5f * ( 8.0f + pdx*rotcos - pdy*rotsin + xdelta );
+								py = 112.5f * ( 4.0f + pdx*rotsin + pdy*rotcos + ydelta ) + 90.0f;
+							}
+
+							uint32_t poskey = (uint32_t)(px * 1009.0f) + (uint32_t)(py * 1013.0f);
+							if( last_wgo.count(poskey) ) {   // Overlapped
+								lua_pushnumber(L, 1.0);
+								lua_rawseti(L, 2, last_wgo[poskey]+1);
+							}
+							else {
+								last_wgo[poskey] = wgo_used;
+								T_WPOS[wgo_used] -> setX(px).setY(py).setZ( of_layer2 ? 0.15f : 0.05f );
+								float wst_ratio;
+								{
+									// ···
+								}	lua_pushnumber(L, wst_ratio);		lua_rawseti(L, 2, ++wgo_used);
+							}
+						}			break;
+					}
+				}
+			}   // L. Mutate Info
+		}		current_wishgroup -> mutate_info( (info&0x1ffff) + (node_progress<<17) + (child_progress<<22) );
 	}
 
 
