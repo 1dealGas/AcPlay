@@ -253,11 +253,11 @@ static inline int SetVecs(lua_State *L)
 	uint8_t wgo_required = Arf->wgo_required();
 	uint8_t hgo_required = Arf->hgo_required();
 
-	T_WPOS = (v3p*)malloc( sizeof(v3p*) * wgo_required );
-	T_HPOS = (v3p*)malloc( sizeof(v3p*) * hgo_required );
-	T_APOS = (v3p*)malloc( sizeof(v3p*) * hgo_required );
-	T_HTINT = (v4p*)malloc( sizeof(v4p*) * hgo_required );
-	T_ATINT = (v4p*)malloc( sizeof(v4p*) * hgo_required );
+	T_WPOS = (v3p*)malloc( sizeof(v3p) * wgo_required );
+	T_HPOS = (v3p*)malloc( sizeof(v3p) * hgo_required );
+	T_APOS = (v3p*)malloc( sizeof(v3p) * hgo_required );
+	T_HTINT = (v4p*)malloc( sizeof(v4p) * hgo_required );
+	T_ATINT = (v4p*)malloc( sizeof(v4p) * hgo_required );
 
 	DM_LUA_STACK_CHECK(L, 5);
 	for( uint8_t i=0; i<wgo_required; i++ ) {
