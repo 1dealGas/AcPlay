@@ -59,10 +59,6 @@ static std::vector<uint32_t> blnums;
 
 
 // Assistant Ease Functions
-// static inline float Quad(float ratio, const int16_t sgn) {
-// 	if( sgn < 0 ) { ratio = 1.0f - ratio;	return ( 1.0f - ratio*ratio ); }
-// 	else return ratio*ratio ;
-// }
 static inline uint16_t mod_degree( uint64_t deg ) {
 	do {
 		if(deg > 7200) { if(deg > 14400) deg-=14400;	else deg-=7200; }
@@ -759,8 +755,7 @@ static inline int UpdateArf(lua_State *L)
 			}
 		}
 	}
-  }
-
+}
 	// Do Returns. No need to check the capacity of Lua Stack.
 	lua_pushnumber( L, hint_lost );		lua_pushnumber( L, wgo_used );
 	lua_pushnumber( L, hgo_used );		lua_pushnumber( L, ago_used );
