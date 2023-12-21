@@ -59,10 +59,10 @@ static std::vector<uint32_t> blnums;
 
 
 // Assistant Ease Functions
-static inline float Quad(float ratio, const int16_t sgn) {
-	if( sgn < 0 ) { ratio = 1.0f - ratio;	return ( 1.0f - ratio*ratio ); }
-	else return ratio*ratio ;
-}
+// static inline float Quad(float ratio, const int16_t sgn) {
+// 	if( sgn < 0 ) { ratio = 1.0f - ratio;	return ( 1.0f - ratio*ratio ); }
+// 	else return ratio*ratio ;
+// }
 static inline uint16_t mod_degree( uint64_t deg ) {
 	do {
 		if(deg > 7200) { if(deg > 14400) deg-=14400;	else deg-=7200; }
@@ -299,8 +299,8 @@ static inline int UpdateArf(lua_State *L)
 			uint64_t last_deltanode = dts1 -> Get(dts1_last);		uint64_t u;
 			u = (last_deltanode>>32) & 0x3ffff;						uint32_t init_ms = u*2;
 			if( init_ms <= mstime ) {
-				u = last_deltanode & 0xffffffff;					double base = (double)u / 100000.0;
-				u = last_deltanode >> 50;							double ratio = (double)u / 100000.0;
+				u = last_deltanode & 0xffffffff;					double base = (double)u * 0.00001;
+				u = last_deltanode >> 50;							double ratio = (double)u * 0.00001;
 				dt1 = base + ratio * (mstime - init_ms);			found = true;	break;
 			}
 			else dt_p1--;
@@ -316,9 +316,9 @@ static inline int UpdateArf(lua_State *L)
 			u = (current_deltanode>>32) & 0x3ffff;					uint32_t current_init_ms = u*2;
 			if( mstime < current_init_ms ) { dt_p1--; continue; }
 
-			u = next_deltanode & 0xffffffff;						double next_base = (double)u / 100000.0;
-			u = current_deltanode & 0xffffffff;						double current_base = (double)u / 100000.0;
-			u = current_deltanode >> 50;							double current_ratio = (double)u / 100000.0;
+			u = next_deltanode & 0xffffffff;						double next_base = (double)u * 0.00001;
+			u = current_deltanode & 0xffffffff;						double current_base = (double)u * 0.00001;
+			u = current_deltanode >> 50;							double current_ratio = (double)u * 0.00001;
 			if( current_base > next_base ) dt1 = current_base - current_ratio * (mstime - current_init_ms);
 			else dt1 = current_base + current_ratio * (mstime - current_init_ms);
 			found = true;	break;
@@ -333,8 +333,8 @@ static inline int UpdateArf(lua_State *L)
 			uint64_t last_deltanode = dts2 -> Get(dts2_last);		uint64_t u;
 			u = (last_deltanode>>32) & 0x3ffff;						uint32_t init_ms = u*2;
 			if( init_ms <= mstime ) {
-				u = last_deltanode & 0xffffffff;					double base = (double)u / 100000.0;
-				u = last_deltanode >> 50;							double ratio = (double)u / 100000.0;
+				u = last_deltanode & 0xffffffff;					double base = (double)u * 0.00001;
+				u = last_deltanode >> 50;							double ratio = (double)u * 0.00001;
 				dt2 = base + ratio * (mstime - init_ms);			found = true;	break;
 			}
 			else dt_p2--;
@@ -350,9 +350,9 @@ static inline int UpdateArf(lua_State *L)
 			u = (current_deltanode>>32) & 0x3ffff;					uint32_t current_init_ms = u*2;
 			if( mstime < current_init_ms ) { dt_p2--; continue; }
 
-			u = next_deltanode & 0xffffffff;						double next_base = (double)u / 100000.0;
-			u = current_deltanode & 0xffffffff;						double current_base = (double)u / 100000.0;
-			u = current_deltanode >> 50;							double current_ratio = (double)u / 100000.0;
+			u = next_deltanode & 0xffffffff;						double next_base = (double)u * 0.00001;
+			u = current_deltanode & 0xffffffff;						double current_base = (double)u * 0.00001;
+			u = current_deltanode >> 50;							double current_ratio = (double)u * 0.00001;
 			if( current_base > next_base ) dt2 = current_base - current_ratio * (mstime - current_init_ms);
 			else dt2 = current_base + current_ratio * (mstime - current_init_ms);
 			found = true;	break;
@@ -386,7 +386,7 @@ static inline int UpdateArf(lua_State *L)
 		uint8_t nodes_bound = nodes->size() - 1;
 		if(!nodes_bound)							continue;
 		else if( node_progress >= nodes_bound )		node_progress = nodes_bound - 1;
-		while( !node_found && node_progress<nodes_bound ) {
+		while( node_progress<nodes_bound ) {   // A "break;" added at the end of the circulation body.
 			// 1. Info & Judgement
 			uint64_t next_node = nodes -> Get(node_progress+1);
 			uint64_t current_node = nodes -> Get(node_progress);
@@ -475,7 +475,7 @@ static inline int UpdateArf(lua_State *L)
 				}
 				lua_pushnumber(L, wst_ratio);		lua_rawseti(L, 2, ++wgo_used);
 			}
-		}
+		}	break;
 	}}
 
 		// C. Childs
@@ -484,43 +484,43 @@ static inline int UpdateArf(lua_State *L)
 			uint16_t how_many_childs = childs -> size();
 
 			if(how_many_childs) {
-				float current_dt = of_layer2 ? dt2 : dt1 ;
+				double current_dt = of_layer2 ? dt2 : dt1 ;
 			
 				// Verify Child Progress I
 				bool has_child_to_search = true;
 				if( (child_progress+1) >= how_many_childs ) {
-					uint32_t last_dt = childs -> Get( how_many_childs-1 ) -> dt();
+					double last_dt = (childs->Get( how_many_childs-1 )->dt()) * 0.00001;
 					if(last_dt <= current_dt)	has_child_to_search = false;
 					else						child_progress = how_many_childs - 1;
 				}
 
 				// Search Childs
 				if(has_child_to_search) {
-					float max_visible_distance = (info & 0xffff) / 8192.f;
+					double max_visible_distance = (info & 0xffff) / 8192.0;
 					while(child_progress < how_many_childs) {
 
 						// Verify Child Progress II
-						if( child_progress && childs->Get( child_progress-1 )->dt() > current_dt )
+						if( child_progress && childs->Get( child_progress-1 )->dt()*0.00001 > current_dt )
 							{ child_progress--; continue; }
-						else if( childs->Get( child_progress )->dt() <= current_dt )
+						else if( childs->Get( child_progress )->dt()*0.00001 <= current_dt )
 							{ child_progress++; continue; }
 						for( uint16_t i=child_progress; i<how_many_childs; i++) {
 
 							// Get Radius
 							auto current_child = childs -> GetMutableObject(i);
-							float radius = current_child->dt() - current_dt;
+							double radius = current_child->dt() * 0.00001 - current_dt;
 							if( radius > max_visible_distance ) break;
 
 							// Get Angle
 							{
-								int16_t current_degree = 90;
+								double current_degree = 90.0;
 								{
 									auto anodes = current_child -> anodes();
 									uint8_t anodes_bound = anodes->size() - 1;
 
 									// Unique Value
 									if(!anodes_bound) {
-										current_degree = (int16_t)(anodes->Get(0) & 0xfff) - 1800;
+										current_degree = (double)(anodes->Get(0) >> 20) - 1800.0;
 									}
 
 									// A Series of Values
@@ -530,36 +530,84 @@ static inline int UpdateArf(lua_State *L)
 										bool anode_search_required = true;
 										{
 											uint32_t last_anode = anodes -> Get(anodes_bound);
-											uint32_t last_ms = (last_anode >> 14) * 2;
+											uint32_t last_ms = (last_anode&0x3ffff) * 2;
 											if( mstime >= last_ms ) {
 												anode_search_required = false;
-												current_degree = (int16_t)(last_anode&0xfff) - 1800;
+												current_degree = (double)(last_anode>>20) - 1800.0;
 											}
 										}
 
 										// Trial II
 										if(anode_search_required) {
 											uint32_t first_anode = anodes -> Get(0);
-											uint32_t first_ms = (first_anode >> 14) * 2;
+											uint32_t first_ms = (first_anode&0x3ffff) * 2;
 											if( mstime <= first_ms ) {
 												anode_search_required = false;
-												current_degree = (int16_t)(first_anode&0xfff) - 1800;
+												current_degree = (double)(first_anode>>20) - 1800.0;
 											}
 										}
 
 										// Search if Required
 										if(anode_search_required) {
-											// uint8_t a_progress = current_child -> p();
-											// bool anode_found;
-											// {
-											// 	uint32_t a_current_ms;
-											// 	auto anodes = current_child -> anodes();
-											// 	uint8_t anodes_bound = anodes->size() - 1;
-											// }
-											// current_child -> mutate_p( a_progress );
+											uint8_t a_progress = current_child -> p();
+											if( a_progress >= anodes_bound ) a_progress = anodes_bound - 1;
+											while( a_progress<anodes_bound ) {
+
+												uint32_t next_anode = anodes -> Get(a_progress+1);
+												uint32_t current_anode = anodes -> Get(a_progress);
+
+												uint32_t a_next_ms = (next_anode&0x3ffff) * 2;
+												uint32_t a_current_ms = (current_anode&0x3ffff) * 2;
+
+												if( mstime < a_current_ms ) {
+													a_progress--;
+													continue;
+												}
+												else if( mstime >= a_next_ms ) {
+													a_progress++;
+													continue;
+												}
+
+												float a_ratio;
+												{
+													uint32_t difms = a_next_ms - a_current_ms;
+													if(!difms)
+														a_ratio = 0.0f;
+													else if(difms<8193)
+														a_ratio = (mstime-a_current_ms) * RCP[ difms-1 ];
+													else
+														a_ratio = (mstime-a_current_ms) / (float)difms;
+												}
+
+												double a1 = (double)(current_anode >> 20);
+												double da = (double)(next_anode >> 20) - a1;
+												uint8_t et = (uint8_t)( (current_anode>>18) & 0b11 );
+												switch(et) {
+													case 0:
+														current_degree = a1 + da*a_ratio;
+														current_degree -= 1800.0;
+														break;
+													case 1:
+														current_degree = a1 + da*ESIN[(uint16_t)(a_ratio*1000)];
+														current_degree -= 1800.0;
+														break;
+													case 2:
+														current_degree = a1 + da*ECOS[(uint16_t)(a_ratio*1000)];
+														current_degree -= 1800.0;
+														break;
+													default:
+														if(a1 < 0) {
+															 a_ratio = 1.0f - a_ratio;
+															 a_ratio = 1.0f - a_ratio * a_ratio;
+														}
+														else a_ratio *= a_ratio;
+														current_degree = a1 + da * a_ratio;
+														current_degree -= 1800.0;
+												}	break;
+											}	current_child -> mutate_p( a_progress );
 										}
-									}   // There must be sth wrong if anodes_bound==-1.
-								}   GetSINCOS(current_degree);
+									}			// There must be sth wrong if anodes_bound==-1.
+								}				GetSINCOS(current_degree);
 							}
 
 							// Param Setting
