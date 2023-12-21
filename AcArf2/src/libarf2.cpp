@@ -262,14 +262,12 @@ static inline int SetVecs(lua_State *L)
 	DM_LUA_STACK_CHECK(L, 5);
 	for( uint8_t i=0; i<wgo_required; i++ ) {
 		lua_rawgeti(L, 1, i+1);		T_WPOS[i] = dmScript::CheckVector3(L, 7);
-		lua_pop(L, 1);
 	}
 	for( uint8_t i=0; i<hgo_required; i++ ) {
 		lua_rawgeti(L, 2, i+1);		T_HPOS[i] = dmScript::CheckVector3(L, 7);
 		lua_rawgeti(L, 3, i+1);		T_APOS[i] = dmScript::CheckVector3(L, 8);
 		lua_rawgeti(L, 4, i+1);		T_HTINT[i] = dmScript::CheckVector4(L, 9);		T_HTINT[i] -> setW(1.0f);
 		lua_rawgeti(L, 5, i+1);		T_ATINT[i] = dmScript::CheckVector4(L, 10);
-		lua_pop(L, 4);
 	}
 	return 0;
 }
@@ -723,7 +721,7 @@ static inline int UpdateArf(lua_State *L)
 							if( elt>37 ) 	atint -> setX(A_LATE_R).setY(A_LATE_G).setZ(A_LATE_B);
 							else 			atint -> setX(A_EARLY_R).setY(A_EARLY_G).setZ(A_EARLY_B);
 						}
-						lua_pushnumber(L, pt);	lua_rawseti(L, 3, ++ago_used);	lua_pop(L, 1);
+						lua_pushnumber(L, pt);	lua_rawseti(L, 3, ++ago_used);
 					}							// Sh*t from C++
 					break;
 				default:   // case HINT_SWEEPED:
@@ -751,7 +749,7 @@ static inline int UpdateArf(lua_State *L)
 					else 			atint -> setX(A_HIT_C).setY(A_HIT_C).setZ(A_HIT_C);
 				}
 				else 				atint -> setX(A_LATE_R).setY(A_LATE_G).setZ(A_LATE_B);
-				lua_pushnumber(L, pt);	lua_rawseti(L, 3, ++ago_used);	lua_pop(L, 1);
+				lua_pushnumber(L, pt);	lua_rawseti(L, 3, ++ago_used);
 			}
 		}
 	}
@@ -933,13 +931,7 @@ static const luaL_reg M[] =
 
 static inline dmExtension::Result LuaInit(dmExtension::Params* params)
 {
-	lua_State* L = params->m_L;
-
-	int top = lua_gettop(L);
-	luaL_register(L, "Arf2", M);
-	lua_pop(L, 1);
-
-	assert(top == lua_gettop(L));
+	luaL_register(params->m_L, "Arf2", M);
 	return dmExtension::RESULT_OK;
 }
 
