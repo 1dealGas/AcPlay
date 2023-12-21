@@ -286,21 +286,22 @@ static inline int UpdateArf(lua_State *L)
 	// Z Distribution: Wish{0,0.05,0.1,0.15}  Hint(-0.06,0)
 	uint8_t wgo_used, hgo_used, ago_used;			uint16_t hint_lost;
 	uint32_t mstime = (uint32_t)luaL_checknumber(L, 1);
+		if( !mstime ) mstime = 1;
 	DM_LUA_STACK_CHECK(L, 4);
 
 	// Check DTime
 	// For Arf2 charts(fumens), init_ms of each layer's 1st DeltaNode must be 0ms.
 	// [) Left Close, Right Open
 	double dt1; {
-	auto dts1 = Arf -> dts_layer1();		auto dts1_last = dts1->size() - 1;
-	while(!dt1) {
+	bool found;		auto dts1 = Arf -> dts_layer1();		auto dts1_last = dts1->size() - 1;
+	while(!found) {
 		if( dt_p1 >= dts1_last ) {   // "==" is replaced by ">=" to enhance the robustness.
 			uint64_t last_deltanode = dts1 -> Get(dts1_last);		uint64_t u;
 			u = (last_deltanode>>32) & 0x3ffff;						uint32_t init_ms = u*2;
 			if( init_ms <= mstime ) {
 				u = last_deltanode & 0xffffffff;					double base = (double)u / 100000.0;
 				u = last_deltanode >> 50;							double ratio = (double)u / 100000.0;
-				dt1 = base + ratio * (mstime - init_ms);			break;
+				dt1 = base + ratio * (mstime - init_ms);			found = true;	break;
 			}
 			else dt_p1--;
 		}
@@ -320,21 +321,21 @@ static inline int UpdateArf(lua_State *L)
 			u = current_deltanode >> 50;							double current_ratio = (double)u / 100000.0;
 			if( current_base > next_base ) dt1 = current_base - current_ratio * (mstime - current_init_ms);
 			else dt1 = current_base + current_ratio * (mstime - current_init_ms);
-			break;
+			found = true;	break;
 		}
 	} }
 
 	// Same. It makes no sense to use an array/vector for the stuff fixed to contain 2 elements.
 	double dt2; {
-	auto dts2 = Arf -> dts_layer2();		auto dts2_last = dts2->size() - 1;
-	while(!dt2) {
+	bool found;		auto dts2 = Arf -> dts_layer2();		auto dts2_last = dts2->size() - 1;
+	while(!found) {
 		if( dt_p2 >= dts2_last ) {
 			uint64_t last_deltanode = dts2 -> Get(dts2_last);		uint64_t u;
 			u = (last_deltanode>>32) & 0x3ffff;						uint32_t init_ms = u*2;
 			if( init_ms <= mstime ) {
 				u = last_deltanode & 0xffffffff;					double base = (double)u / 100000.0;
 				u = last_deltanode >> 50;							double ratio = (double)u / 100000.0;
-				dt2 = base + ratio * (mstime - init_ms);			break;
+				dt2 = base + ratio * (mstime - init_ms);			found = true;	break;
 			}
 			else dt_p2--;
 		}
@@ -354,7 +355,7 @@ static inline int UpdateArf(lua_State *L)
 			u = current_deltanode >> 50;							double current_ratio = (double)u / 100000.0;
 			if( current_base > next_base ) dt2 = current_base - current_ratio * (mstime - current_init_ms);
 			else dt2 = current_base + current_ratio * (mstime - current_init_ms);
-			break;
+			found = true;	break;
 		}
 	} }
 
@@ -469,8 +470,8 @@ static inline int UpdateArf(lua_State *L)
 						if(node_progress)	dms_from_1st_node = mstime - (uint32_t)(nodes->Get(0) & 0x7ffff);
 						else				dms_from_1st_node = mstime - current_ms;
 					}
-					if( dms_from_1st_node > 370 )	wst_ratio = 1.0f;
-					else							wst_ratio = dms_from_1st_node / 370.0f;
+					if( dms_from_1st_node > 237 ) wst_ratio = 1.0f;
+					else						  wst_ratio = dms_from_1st_node * 0.00421940928270042194092827f;
 				}
 				lua_pushnumber(L, wst_ratio);		lua_rawseti(L, 2, ++wgo_used);
 			}
@@ -512,9 +513,53 @@ static inline int UpdateArf(lua_State *L)
 
 							// Get Angle
 							{
-								double current_degree;
-								// ···
-								GetSINCOS(current_degree);
+								int16_t current_degree = 90;
+								{
+									auto anodes = current_child -> anodes();
+									uint8_t anodes_bound = anodes->size() - 1;
+
+									// Unique Value
+									if(!anodes_bound) {
+										current_degree = (int16_t)(anodes->Get(0) & 0xfff) - 1800;
+									}
+
+									// A Series of Values
+									else if(anodes_bound > 0) {
+
+										// Trial
+										bool anode_search_required = true;
+										{
+											uint32_t last_anode = anodes -> Get(anodes_bound);
+											uint32_t last_ms = (last_anode >> 14) * 2;
+											if( mstime >= last_ms ) {
+												anode_search_required = false;
+												current_degree = (int16_t)(last_anode&0xfff) - 1800;
+											}
+										}
+
+										// Trial II
+										if(anode_search_required) {
+											uint32_t first_anode = anodes -> Get(0);
+											uint32_t first_ms = (first_anode >> 14) * 2;
+											if( mstime <= first_ms ) {
+												anode_search_required = false;
+												current_degree = (int16_t)(first_anode&0xfff) - 1800;
+											}
+										}
+
+										// Search if Required
+										if(anode_search_required) {
+											// uint8_t a_progress = current_child -> p();
+											// bool anode_found;
+											// {
+											// 	uint32_t a_current_ms;
+											// 	auto anodes = current_child -> anodes();
+											// 	uint8_t anodes_bound = anodes->size() - 1;
+											// }
+											// current_child -> mutate_p( a_progress );
+										}
+									}   // There must be sth wrong if anodes_bound==-1.
+								}   GetSINCOS(current_degree);
 							}
 
 							// Param Setting
@@ -536,7 +581,9 @@ static inline int UpdateArf(lua_State *L)
 								T_WPOS[wgo_used] -> setX(px).setY(py).setZ( of_layer2 ? 0.15f : 0.05f );
 								float wst_ratio;
 								{
-									// ···
+									float div  =  max_visible_distance - radius;
+										  div /= (max_visible_distance * 0.237f);
+									wst_ratio  =  div>1.0f ? 1.0f : div;
 								}	lua_pushnumber(L, wst_ratio);		lua_rawseti(L, 2, ++wgo_used);
 							}
 						}			break;
