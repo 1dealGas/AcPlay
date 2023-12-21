@@ -261,13 +261,13 @@ static inline int SetVecs(lua_State *L)
 
 	DM_LUA_STACK_CHECK(L, 5);
 	for( uint8_t i=0; i<wgo_required; i++ ) {
-		lua_rawgeti(L, 1, i+1);		T_WPOS[i] = dmScript::CheckVector3(L, 7);
+		lua_rawgeti(L, 1, i+1);		T_WPOS[i] = dmScript::CheckVector3(L, 7);		lua_pop(L, 1);
 	}
 	for( uint8_t i=0; i<hgo_required; i++ ) {
 		lua_rawgeti(L, 2, i+1);		T_HPOS[i] = dmScript::CheckVector3(L, 7);
 		lua_rawgeti(L, 3, i+1);		T_APOS[i] = dmScript::CheckVector3(L, 8);
 		lua_rawgeti(L, 4, i+1);		T_HTINT[i] = dmScript::CheckVector4(L, 9);		T_HTINT[i] -> setW(1.0f);
-		lua_rawgeti(L, 5, i+1);		T_ATINT[i] = dmScript::CheckVector4(L, 10);
+		lua_rawgeti(L, 5, i+1);		T_ATINT[i] = dmScript::CheckVector4(L, 10);		lua_pop(L, 4);
 	}
 	return 0;
 }
@@ -883,7 +883,6 @@ static inline int JudgeArf(lua_State *L)
 	lua_pushnumber(L, hint_lost);
 	lua_pushboolean(L, special_hint_judged);
 	return 3;
-
 }
 
 
@@ -929,8 +928,7 @@ static const luaL_reg M[] =
 	{0, 0}
 };
 
-static inline dmExtension::Result LuaInit(dmExtension::Params* params)
-{
+static inline dmExtension::Result LuaInit(dmExtension::Params* params) {
 	luaL_register(params->m_L, "Arf2", M);
 	return dmExtension::RESULT_OK;
 }
