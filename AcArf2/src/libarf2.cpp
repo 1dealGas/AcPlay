@@ -381,8 +381,11 @@ static inline int UpdateArf(lua_State *L)
 
 		uint32_t current_ms;
 		uint8_t nodes_bound = nodes->size() - 1;
-		if(!nodes_bound)							continue;
-		else if( node_progress >= nodes_bound )		node_progress = nodes_bound - 1;
+		{
+			if(nodes_bound < 1)											continue;
+			else if( mstime < (uint32_t)(nodes->Get(0) & 0x7ffff) )		continue;
+			else if( node_progress >= nodes_bound )						node_progress = nodes_bound - 1;
+		}
 		while( node_progress<nodes_bound ) {   // A "break;" added at the end of the circulation body.
 			// 1. Info & Judgement
 			uint64_t next_node = nodes -> Get(node_progress+1);
@@ -930,9 +933,14 @@ static const luaL_reg M[] =
 	{"NewTable", NewTable},
 	{0, 0}
 };
+static inline dmExtension::Result LuaInit(dmExtension::Params* p) {
+	lua_State* L = p -> m_L;
 
-static inline dmExtension::Result LuaInit(dmExtension::Params* params) {
-	luaL_register(params->m_L, "Arf2", M);
+	int top = lua_gettop(L);
+	luaL_register(L, "Arf2", M);
+	lua_pop(L, 1);
+
+	assert(top == lua_gettop(L));
 	return dmExtension::RESULT_OK;
 }
 static inline dmExtension::Result OK(dmExtension::Params* params) { return dmExtension::RESULT_OK; }
