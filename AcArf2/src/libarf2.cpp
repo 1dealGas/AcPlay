@@ -278,10 +278,13 @@ static inline int UpdateArf(lua_State *L)
 {S
 	// Prepare Returns & Process msTime
 	// Z Distribution: Wish{0,0.05,0.1,0.15}  Hint(-0.06,0)
+	DM_LUA_STACK_CHECK(L, 4);
 	uint8_t wgo_used, hgo_used, ago_used;			uint16_t hint_lost;
 	uint32_t mstime = (uint32_t)luaL_checknumber(L, 1);
-		if( !mstime ) mstime = 1;
-	DM_LUA_STACK_CHECK(L, 4);
+	{
+		if(!mstime)								mstime = 1;
+		else if( mstime >= Arf->before() )		return 0;
+	}
 
 	// Check DTime
 	// For Arf2 charts(fumens), init_ms of each layer's 1st DeltaNode must be 0ms.
@@ -932,7 +935,6 @@ static inline dmExtension::Result LuaInit(dmExtension::Params* params) {
 	luaL_register(params->m_L, "Arf2", M);
 	return dmExtension::RESULT_OK;
 }
-
 static inline dmExtension::Result OK(dmExtension::Params* params) { return dmExtension::RESULT_OK; }
 static inline dmExtension::Result APPOK(dmExtension::AppParams* params) { return dmExtension::RESULT_OK; }
 DM_DECLARE_EXTENSION(libArf2, "libArf2", APPOK, APPOK, LuaInit, 0, 0, OK)
