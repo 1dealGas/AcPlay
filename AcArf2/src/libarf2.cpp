@@ -932,6 +932,7 @@ static const luaL_reg M[] =
 	{"NewTable", NewTable},
 	{0, 0}
 };
+
 static inline dmExtension::Result LuaInit(dmExtension::Params* p) {
 	lua_State* L = p -> m_L;
 
