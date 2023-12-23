@@ -41,7 +41,7 @@
 #include <vector>
 extern const float DSIN[901]; extern const float DCOS[901];
 extern const float ESIN[1001]; extern const float ECOS[1001];
-extern const double RCP[8192];
+extern const float RCP[8192];
 
 // Data & Globals
 // For Safety Concern, Nothing will happen if !ArfSize.
