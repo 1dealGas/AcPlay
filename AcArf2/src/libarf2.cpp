@@ -454,6 +454,7 @@ static inline int UpdateArf(lua_State *L)
 				px = 112.5f * ( 8.0f + pdx*rotcos - pdy*rotsin + xdelta );
 				py = 112.5f * ( 4.0f + pdx*rotsin + pdy*rotcos + ydelta ) + 90.0f;
 			}
+			if( px<66.0f || px>1734.0f || py<66.0f || py>1014.0f ) break;
 
 			uint32_t poskey = (uint32_t)(px * 1009.0f) + (uint32_t)(py * 1013.0f);
 			if( last_wgo.count(poskey) ) {   // Overlapped
@@ -617,6 +618,7 @@ static inline int UpdateArf(lua_State *L)
 								px = 112.5f * ( 8.0f + pdx*rotcos - pdy*rotsin + xdelta );
 								py = 112.5f * ( 4.0f + pdx*rotsin + pdy*rotcos + ydelta ) + 90.0f;
 							}
+							if( px<66.0f || px>1734.0f || py<66.0f || py>1014.0f ) break;
 
 							uint32_t poskey = (uint32_t)(px * 1009.0f) + (uint32_t)(py * 1013.0f);
 							if( last_wgo.count(poskey) ) {   // Overlapped
@@ -922,8 +924,7 @@ static inline int SetDaymode(lua_State *L) { daymode = lua_toboolean(L, 1); retu
 
 
 // Defold Binding Related Stuff
-// Considering Adding a "JudgeArfController" Function.
-static const luaL_reg M[] =
+static const luaL_reg M[] =   // Considering Adding a "JudgeArfController" Function.
 {
 	{"SetXScale", SetXS}, {"SetYScale", SetYS}, {"SetXDelta", SetXD}, {"SetYDelta", SetYD},
 	{"InitArf", InitArf}, {"SetVecs", SetVecs}, {"UpdateArf", UpdateArf}, {"FinalArf", FinalArf},
@@ -932,7 +933,6 @@ static const luaL_reg M[] =
 	{"NewTable", NewTable},
 	{0, 0}
 };
-
 static inline dmExtension::Result LuaInit(dmExtension::Params* p) {
 	lua_State* L = p -> m_L;
 
