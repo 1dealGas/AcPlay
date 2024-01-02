@@ -47,7 +47,7 @@ extern const double DSIN[901], DCOS[901],
 static size_t ArfSize = 0;
 static unsigned char* ArfBuf = nullptr;
 static float xscale, yscale, xdelta, ydelta, rotsin, rotcos;
-static bool daymode;
+static bool daymode, allow_anmitsu;
 
 // Internal Globals
 static float SIN, COS;
@@ -161,6 +161,8 @@ static inline bool has_touch_near(const uint64_t hint) {
 }
 static inline bool is_safe_to_anmitsu( const uint64_t hint ){
 
+	if(!allow_anmitsu) return false;
+
 	uint64_t u;					// No overflowing risk here.
 	u = hint & 0x1fff;			int16_t hint_l = (int16_t)u - 384;		int16_t hint_r = (int16_t)u + 384;
 	u = (hint>>13) & 0xfff;		int16_t hint_d = (int16_t)u - 384;		int16_t hint_u = (int16_t)u + 384;
@@ -224,6 +226,7 @@ static inline int InitArf(lua_State *L)
 	xdelta = ydelta = rotsin = 0.0f;
 	xscale = yscale = rotcos = 1.0f;
 	dt_p1 = dt_p2 = daymode = 0;
+	allow_anmitsu = true;
 
 	// Ensure a clean Initialization
 	last_wgo.clear();
@@ -584,25 +587,20 @@ static inline int UpdateArf(lua_State *L)
 												uint8_t et = (uint8_t)( (current_anode>>18) & 0b11 );
 												switch(et) {
 													case 0:
+														current_degree = a1 - 1800.0;
+														break;
+													case 1:
 														current_degree = a1 + da*a_ratio;
 														current_degree -= 1800.0;
 														break;
-													case 1:
+													case 2:
 														current_degree = a1 + da*ESIN[(uint16_t)(a_ratio*1000)];
 														current_degree -= 1800.0;
 														break;
-													case 2:
+													case 3:
 														current_degree = a1 + da*ECOS[(uint16_t)(a_ratio*1000)];
 														current_degree -= 1800.0;
 														break;
-													default:
-														if(a1 < 0) {
-															 a_ratio = 1.0f - a_ratio;
-															 a_ratio = 1.0f - a_ratio * a_ratio;
-														}
-														else a_ratio *= a_ratio;
-														current_degree = a1 + da * a_ratio;
-														current_degree -= 1800.0;
 												}	break;
 											}	current_child -> mutate_p( a_progress );
 										}
@@ -920,7 +918,8 @@ static inline int NewTable(lua_State *L) {
 	lua_createtable( L, (int)luaL_checknumber(L, 1), (int)luaL_checknumber(L, 2) );
 	return 1;
 }
-static inline int SetDaymode(lua_State *L) { daymode = lua_toboolean(L, 1); return 0; }
+static inline int SetDaymode(lua_State *L) { daymode		= lua_toboolean(L, 1);	return 0; }
+static inline int SetAnmitsu(lua_State *L) { allow_anmitsu	= lua_toboolean(L, 1);	return 0; }
 
 
 // Defold Binding Related Stuff
@@ -929,7 +928,7 @@ static const luaL_reg M[] =   // Considering Adding a "JudgeArfController" Funct
 	{"SetXScale", SetXS}, {"SetYScale", SetYS}, {"SetXDelta", SetXD}, {"SetYDelta", SetYD},
 	{"InitArf", InitArf}, {"SetVecs", SetVecs}, {"UpdateArf", UpdateArf}, {"FinalArf", FinalArf},
 	{"SetTouches", SetTouches}, {"SetIDelta", SetIDelta}, {"JudgeArf", JudgeArf},
-	{"SetRotDeg", SetRotDeg}, {"SetDaymode", SetDaymode},
+	{"SetRotDeg", SetRotDeg}, {"SetDaymode", SetDaymode}, {"SetAnmitsu", SetAnmitsu},
 	{"NewTable", NewTable},
 	{0, 0}
 };

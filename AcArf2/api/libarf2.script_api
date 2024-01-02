@@ -119,6 +119,12 @@
     - name: is_daymode
       type: boolean
 
+  - name: SetAnmitsu
+    type: function
+    parameters:
+    - name: is_daymode
+      type: boolean
+
   - name: NewTable
     type: function
     parameters:
