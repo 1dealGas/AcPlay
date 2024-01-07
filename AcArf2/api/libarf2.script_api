@@ -8,6 +8,8 @@
     parameters:
     - name: str
       type: string
+    - name: is_auto
+      type: boolean
     returns:
     - name: before
       type: number

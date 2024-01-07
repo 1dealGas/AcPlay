@@ -96,7 +96,7 @@ static dmVMath::Vector3* T[10];
 typedef dmVMath::Vector3 v3, *v3p;
 typedef dmVMath::Vector4 v4, *v4p;
 enum { HINT_NONJUDGED_NONLIT = 0, HINT_NONJUDGED_LIT,
-       HINT_JUDGED = 10, HINT_JUDGED_LIT, HINT_SWEEPED };
+       HINT_JUDGED = 10, HINT_JUDGED_LIT, HINT_SWEEPED, HINT_AUTO };
 
 // Recommended Usage of "SetTouches"
 //     local v3,T = vmath.vector3(), Arf2.NewTable(10,0);    for i=1,10 do T[i]=v3() end
@@ -194,12 +194,15 @@ static inline uint8_t HStatus(uint64_t Hint){
 	Hint >>= 44;
 	bool TAG = (bool)(Hint >> 19);
 	Hint &= 0x7ffff;
-	if( Hint==1 ) 		return HINT_SWEEPED;
+	if( Hint==1 ) {
+		if(TAG)			return HINT_AUTO;
+		else			return HINT_SWEEPED;
+	}
 	else if(Hint) {
 		if(TAG)			return HINT_JUDGED_LIT;
 		else			return HINT_JUDGED;
 	}
-	else{
+	else {
 		if(TAG) 		return HINT_NONJUDGED_LIT;
 		else			return HINT_NONJUDGED_NONLIT;
 	}
@@ -214,7 +217,7 @@ static v3p *T_WPOS = nullptr, *T_HPOS = nullptr, *T_APOS = nullptr;
 static v4p *T_HTINT = nullptr, *T_ATINT = nullptr;
 #define S if( !ArfSize || T_WPOS==nullptr ) return 0;
 
-// InitArf(str) -> before, total_hints, wgo_required, hgo_required
+// InitArf(str, is_auto) -> before, total_hints, wgo_required, hgo_required
 // Recommended Usage:
 //     local b,t,w,h = InitArf( sys.load_resource( "Arf/1011.ar" ) )
 //     collectgarbage()
@@ -235,17 +238,24 @@ static inline int InitArf(lua_State *L)
 	// For Defold hasn't exposed something like dmResource::LoadResource(),
 	// there we copy the Lua String returned by sys.load_resource() to acquire a mutable buffer.
 	const char* B = luaL_checklstring(L, 1, &ArfSize);
-	if(!ArfSize) return 0;		ArfBuf = (unsigned char*)malloc(ArfSize);
+	if(!ArfSize) return 0;					ArfBuf = (unsigned char*)malloc(ArfSize);
 	memcpy(ArfBuf, B, ArfSize);
+
+	// Register Arf  &  Set Auto Status
+	Arf = GetMutableArf2( ArfBuf );			int total_hints = Arf -> total_hints();
+	if( lua_toboolean(L, 2) ) {   // is_auto
+		auto H = Arf -> mutable_hint();
+		for( uint16_t i=0; i<total_hints; i++ ){
+			auto hint_automated = H->Get(i) + 0x8000100000000000;
+			H -> Mutate(i, hint_automated);
+		}
+	}
 
 	// Do API Stuff
 	DM_LUA_STACK_CHECK(L, 4);
-	Arf = GetMutableArf2( ArfBuf );
 	special_hint = Arf->special_hint();
-	lua_pushnumber( L, Arf->before() );
-	lua_pushnumber( L, Arf->total_hints() );
-	lua_pushnumber( L, Arf->wgo_required() );
-	lua_pushnumber( L, Arf->hgo_required() );
+	lua_pushnumber( L, Arf->before() );				lua_pushnumber( L, total_hints );
+	lua_pushnumber( L, Arf->wgo_required() );		lua_pushnumber( L, Arf->hgo_required() );
 	return 4;
 }
 // SetVecs(table_wpos/hpos/apos/htint/atint)
@@ -685,7 +695,7 @@ static inline int UpdateArf(lua_State *L)
 				hpos -> setX(posx).setY(posy).setZ( -(0.05f + dt*0.00001f) );
 				hgo_used++;
 			}
-			else if( dt < 370 ) switch(ch_status) {
+			else if( dt <= 370 ) switch(ch_status) {
 				case HINT_NONJUDGED_NONLIT:
 					hpos -> setX(posx).setY(posy).setZ( -0.04f );
 					htint -> setX(0.2037f).setY(0.2037f).setZ(0.2037f);
@@ -729,11 +739,44 @@ static inline int UpdateArf(lua_State *L)
 						lua_pushnumber(L, pt);	lua_rawseti(L, 3, ++ago_used);
 					}							// Sh*t from C++
 					break;
-				default:   // case HINT_SWEEPED:
+				case HINT_SWEEPED:
 					float hl_rt = 0.437f - dt*0.00037f;
 					htint -> setX(hl_rt);		hl_rt *= 0.51f;		htint -> setY(hl_rt).setZ(hl_rt);
 					hpos -> setX(posx).setY(posy).setZ( -0.02f + dt*0.00001f );
-					hgo_used++;
+					hgo_used++;		break;
+				case HINT_AUTO:
+					if( dt>0 ) {
+						
+						// HGo
+						if (dt<101) {
+							hpos -> setX(posx).setY(posy).setZ( -0.01f );
+							if(daymode)		htint -> setX(H_HIT_R).setY(H_HIT_G).setZ(H_HIT_B);
+							else 			htint -> setX(H_HIT_C).setY(H_HIT_C).setZ(H_HIT_C);
+							hgo_used++;
+						}
+
+						// AGo
+						apos -> setX(posx).setY(posy).setZ( -dt*0.00001f );
+						if( dt<73 ) {
+							float tintw = dt * 0.01f;
+							tintw = 0.637f * tintw * (2.f - tintw);
+							atint -> setW( 0.17199f + tintw );
+						}
+						else {
+							float tintw = (dt-73) * RCP[296];   // "/297.0f"
+							tintw = 0.637f * tintw * (2.f - tintw);
+							atint -> setW( 0.637f - tintw );
+						}
+						if(daymode) 	atint -> setX(A_HIT_R).setY(A_HIT_G).setZ(A_HIT_B);
+						else 			atint -> setX(A_HIT_C).setY(A_HIT_C).setZ(A_HIT_C);
+						lua_pushnumber(L, pt);	lua_rawseti(L, 3, ++ago_used);
+					}
+					else {
+						hpos -> setX(posx).setY(posy).setZ( -0.04f );
+						htint -> setX(0.2037f).setY(0.2037f).setZ(0.2037f);
+						hgo_used++;		break;
+					}
+				// default:
 			}
 			else if(
 				(ch_status==HINT_JUDGED || ch_status==HINT_JUDGED_LIT) && ( pt<=370 )
