@@ -669,7 +669,7 @@ static inline int UpdateArf(lua_State *L)
 			if(dt < -510) break;					if(dt > 470) continue;   // Asserted to be sorted.
 
 			uint8_t ch_status = HStatus(current_hint);
-			if( (dt>100) && ch_status<2 ) {   // Sweep, before generating rendering parameters.
+			if( (ch_status<2) && dt>100 ) {   // Sweep, before generating rendering parameters.
 				hint_lost += 1;
 				hint -> Mutate(current_hint_id, current_hint & 0xfffffffffff + 0x100000000000 );
 				ch_status = HINT_SWEEPED;
@@ -746,7 +746,7 @@ static inline int UpdateArf(lua_State *L)
 					hgo_used++;		break;
 				case HINT_AUTO:
 					if( dt>0 ) {
-						
+
 						// HGo
 						if (dt<101) {
 							hpos -> setX(posx).setY(posy).setZ( -0.01f );
@@ -976,13 +976,7 @@ static const luaL_reg M[] =   // Considering Adding a "JudgeArfController" Funct
 	{0, 0}
 };
 static inline dmExtension::Result LuaInit(dmExtension::Params* p) {
-	lua_State* L = p -> m_L;
-
-	int top = lua_gettop(L);
-	luaL_register(L, "Arf2", M);
-	lua_pop(L, 1);
-
-	assert(top == lua_gettop(L));
+	luaL_register(p -> m_L, "Arf2", M);
 	return dmExtension::RESULT_OK;
 }
 static inline dmExtension::Result OK(dmExtension::Params* params) { return dmExtension::RESULT_OK; }
