@@ -308,7 +308,7 @@ static inline int UpdateArf(lua_State *L)
 			uint64_t last_deltanode = dts1 -> Get(dts1_last);		uint64_t u;
 			u = (last_deltanode>>32) & 0x3ffff;						uint32_t init_ms = u*2;
 			if( init_ms <= mstime ) {
-				u = last_deltanode & 0xffffffff;					double base = (double)u * 0.00001;
+				u = last_deltanode & 0xffffffff;					double base = (double)u * 0.00002;
 				u = last_deltanode >> 50;							double ratio = (double)u * 0.00001;
 				dt1 = base + ratio * (mstime - init_ms);			found = true;	break;
 			}
@@ -325,8 +325,8 @@ static inline int UpdateArf(lua_State *L)
 			u = (current_deltanode>>32) & 0x3ffff;					uint32_t current_init_ms = u*2;
 			if( mstime < current_init_ms ) { dt_p1--; continue; }
 
-			u = next_deltanode & 0xffffffff;						double next_base = (double)u * 0.00001;
-			u = current_deltanode & 0xffffffff;						double current_base = (double)u * 0.00001;
+			u = next_deltanode & 0xffffffff;						double next_base = (double)u * 0.00002;
+			u = current_deltanode & 0xffffffff;						double current_base = (double)u * 0.00002;
 			u = current_deltanode >> 50;							double current_ratio = (double)u * 0.00001;
 			if( current_base > next_base ) dt1 = current_base - current_ratio * (mstime - current_init_ms);
 			else dt1 = current_base + current_ratio * (mstime - current_init_ms);
@@ -342,7 +342,7 @@ static inline int UpdateArf(lua_State *L)
 			uint64_t last_deltanode = dts2 -> Get(dts2_last);		uint64_t u;
 			u = (last_deltanode>>32) & 0x3ffff;						uint32_t init_ms = u*2;
 			if( init_ms <= mstime ) {
-				u = last_deltanode & 0xffffffff;					double base = (double)u * 0.00001;
+				u = last_deltanode & 0xffffffff;					double base = (double)u * 0.00002;
 				u = last_deltanode >> 50;							double ratio = (double)u * 0.00001;
 				dt2 = base + ratio * (mstime - init_ms);			found = true;	break;
 			}
@@ -359,8 +359,8 @@ static inline int UpdateArf(lua_State *L)
 			u = (current_deltanode>>32) & 0x3ffff;					uint32_t current_init_ms = u*2;
 			if( mstime < current_init_ms ) { dt_p2--; continue; }
 
-			u = next_deltanode & 0xffffffff;						double next_base = (double)u * 0.00001;
-			u = current_deltanode & 0xffffffff;						double current_base = (double)u * 0.00001;
+			u = next_deltanode & 0xffffffff;						double next_base = (double)u * 0.00002;
+			u = current_deltanode & 0xffffffff;						double current_base = (double)u * 0.00002;
 			u = current_deltanode >> 50;							double current_ratio = (double)u * 0.00001;
 			if( current_base > next_base ) dt2 = current_base - current_ratio * (mstime - current_init_ms);
 			else dt2 = current_base + current_ratio * (mstime - current_init_ms);
