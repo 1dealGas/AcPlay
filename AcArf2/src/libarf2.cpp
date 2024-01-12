@@ -382,9 +382,9 @@ static inline int UpdateArf(lua_State *L)
 		// A. Info
 		//    current_wishgroup -> mutate_info(new_stuff);
 		uint32_t info = current_wishgroup -> info();
-		bool of_layer2 = (bool)( (info>>16) & 0b1 );
+		bool of_layer2 = (bool)( (info>>13) & 0b1 );
 
-		uint8_t node_progress = (uint8_t)( (info>>17) & 0b11111 );
+		uint8_t node_progress = (uint8_t)( (info>>14) & 0xff );
 		uint16_t child_progress = (uint16_t)(info >> 22);
 
 		// B. Nodes
@@ -509,7 +509,7 @@ static inline int UpdateArf(lua_State *L)
 
 				// Search Childs
 				if(has_child_to_search) {
-					double max_visible_distance = (info & 0xffff) / 8192.0;
+					double max_visible_distance = (info & 0x1fff) / 1024.0;
 					while(child_progress < how_many_childs) {
 
 						// Verify Child Progress II
@@ -647,7 +647,7 @@ static inline int UpdateArf(lua_State *L)
 					}
 				}
 			}   // L. Mutate Info
-		}		current_wishgroup -> mutate_info( (info&0x1ffff) + (node_progress<<17) + (child_progress<<22) );
+		}		current_wishgroup -> mutate_info( (info&0x3fff) + (node_progress<<14) + (child_progress<<22) );
 	}
 
 
