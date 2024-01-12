@@ -242,7 +242,7 @@ static inline int InitArf(lua_State *L)
 	memcpy(ArfBuf, B, ArfSize);
 
 	// Register Arf  &  Set Auto Status
-	Arf = GetMutableArf2( ArfBuf );			int total_hints = Arf -> total_hints();
+	Arf = GetMutableArf2( ArfBuf );			int total_hints = Arf -> hint() -> size();
 	if( lua_toboolean(L, 2) ) {   // is_auto
 		auto H = Arf -> mutable_hint();
 		for( uint16_t i=0; i<total_hints; i++ ){
