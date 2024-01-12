@@ -502,7 +502,7 @@ static inline int UpdateArf(lua_State *L)
 				// Verify Child Progress I
 				bool has_child_to_search = true;
 				if( (child_progress+1) >= how_many_childs ) {
-					double last_dt = (childs->Get( how_many_childs-1 )->dt()) * 0.00001;
+					double last_dt = (childs->Get( how_many_childs-1 )->dt()) * 0.00002;
 					if(last_dt <= current_dt)	has_child_to_search = false;
 					else						child_progress = how_many_childs - 1;
 				}
@@ -513,15 +513,15 @@ static inline int UpdateArf(lua_State *L)
 					while(child_progress < how_many_childs) {
 
 						// Verify Child Progress II
-						if( child_progress && childs->Get( child_progress-1 )->dt()*0.00001 > current_dt )
+						if( child_progress && childs->Get( child_progress-1 )->dt()*0.00002 > current_dt )
 							{ child_progress--; continue; }
-						else if( childs->Get( child_progress )->dt()*0.00001 <= current_dt )
+						else if( childs->Get( child_progress )->dt()*0.00002 <= current_dt )
 							{ child_progress++; continue; }
 						for( uint16_t i=child_progress; i<how_many_childs; i++) {
 
 							// Get Radius
 							auto current_child = childs -> GetMutableObject(i);
-							double radius = current_child->dt() * 0.00001 - current_dt;
+							double radius = current_child->dt() * 0.00002 - current_dt;
 							if( radius > max_visible_distance ) break;
 
 							// Get Angle
